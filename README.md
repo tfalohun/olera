@@ -45,10 +45,10 @@ Open Terminal (Mac) or Command Prompt (Windows) and run:
 
 ```bash
 # 1. Clone (download) the project
-git clone https://github.com/tfalohun/olera.git
+git clone https://github.com/olera-care/olera-web.git
 
 # 2. Go into the project folder
-cd olera
+cd olera-web
 
 # 3. Install dependencies (libraries our code needs)
 npm install

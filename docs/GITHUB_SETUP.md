@@ -10,7 +10,7 @@ Branch protection prevents accidental pushes directly to `main`. All changes go 
 
 ### Steps:
 
-1. Go to https://github.com/tfalohun/olera/settings/branches
+1. Go to https://github.com/olera-care/olera-web/settings/branches
 2. Under "Branch protection rules", click "Add rule"
 3. In "Branch name pattern", type: `main`
 4. Check these options:
@@ -42,7 +42,7 @@ Now every push to `main` auto-deploys, and every PR gets a preview URL!
 
 ### To the GitHub repo:
 
-1. Go to https://github.com/tfalohun/olera/settings/access
+1. Go to https://github.com/olera-care/olera-web/settings/access
 2. Click "Add people"
 3. Enter their GitHub username or email
 4. Choose role:
@@ -71,7 +71,7 @@ Labels help organize issues. Create these labels:
 | `blocked` | #b60205 (red) | Waiting on something |
 | `in progress` | #fbca04 (yellow) | Being worked on |
 
-Go to: https://github.com/tfalohun/olera/labels to manage labels.
+Go to: https://github.com/olera-care/olera-web/labels to manage labels.
 
 ---
 
@@ -106,7 +106,7 @@ Help the team get started with some clear tasks:
 
 GitHub Projects helps visualize work.
 
-1. Go to https://github.com/tfalohun/olera/projects
+1. Go to https://github.com/olera-care/olera-web/projects
 2. Click "New project"
 3. Choose "Board" template
 4. Create columns: `Backlog`, `To Do`, `In Progress`, `Review`, `Done`
@@ -138,10 +138,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 ## Quick Links
 
-- **Repository:** https://github.com/tfalohun/olera
-- **Issues:** https://github.com/tfalohun/olera/issues
-- **Pull Requests:** https://github.com/tfalohun/olera/pulls
-- **Settings:** https://github.com/tfalohun/olera/settings
+- **Repository:** https://github.com/olera-care/olera-web
+- **Issues:** https://github.com/olera-care/olera-web/issues
+- **Pull Requests:** https://github.com/olera-care/olera-web/pulls
+- **Settings:** https://github.com/olera-care/olera-web/settings
 - **Live Site:** Check Vercel for URL
 
 ---

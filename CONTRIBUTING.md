@@ -43,7 +43,7 @@ Cleaning up code without changing what it does
 
 ### Step 1: Pick Something to Work On
 
-Check our [GitHub Issues](https://github.com/tfalohun/olera/issues) or the roadmap in the README.
+Check our [GitHub Issues](https://github.com/olera-care/olera-web/issues) or the roadmap in the README.
 
 **Good first contributions:**
 - Fixing typos
@@ -118,7 +118,7 @@ git push origin your-branch-name
 
 ### Step 7: Create a Pull Request (PR)
 
-1. Go to https://github.com/tfalohun/olera
+1. Go to https://github.com/olera-care/olera-web
 2. You'll see a yellow banner saying "your-branch-name had recent pushes"
 3. Click "Compare & pull request"
 4. Write a description of what you changed and why

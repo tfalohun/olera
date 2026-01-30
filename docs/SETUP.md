@@ -73,7 +73,7 @@ cd ~/Desktop
 ### 2.3 Clone the Repository
 
 ```bash
-git clone https://github.com/tfalohun/olera.git
+git clone https://github.com/olera-care/olera-web.git
 ```
 
 **What does this do?** "Clone" means download. This downloads the entire project to your computer.
@@ -81,7 +81,7 @@ git clone https://github.com/tfalohun/olera.git
 ### 2.4 Enter the Project Folder
 
 ```bash
-cd olera
+cd olera-web
 ```
 
 ### 2.5 Install Dependencies
