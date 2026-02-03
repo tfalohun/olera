@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import ProviderCard, { Provider } from "@/components/providers/ProviderCard";
 
 // Hook to detect when element is in view
@@ -382,112 +383,218 @@ function SocialProofSection() {
   );
 
   return (
-    <section className="py-16 md:py-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center mb-6">
-          <p className="text-primary-600 font-semibold text-sm uppercase tracking-wider mb-2">Trusted nationwide</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-            Helping families find care
-          </h2>
+    <section className="py-16 md:py-24 relative overflow-hidden">
+      {/* Section Header */}
+      <div className="text-center mb-6 relative">
+        <p className="text-primary-600 font-semibold text-sm uppercase tracking-wider mb-2">Trusted nationwide</p>
+        <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+          Helping families find care
+        </h2>
+      </div>
+
+      {/* ========== Enhanced Connected Journey — Premium Stats Section ========== */}
+      <div ref={ref} className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Flowing connection line with enhanced animation */}
+          <svg className="absolute top-1/2 left-0 w-full h-32 -translate-y-1/2 hidden md:block" preserveAspectRatio="none" viewBox="0 0 800 100">
+            <defs>
+              {/* Gradient for the main line */}
+              <linearGradient id="lineGradientEnhanced" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgb(25, 144, 135)" stopOpacity="0.6" />
+                <stop offset="50%" stopColor="rgb(194, 120, 86)" stopOpacity="0.8" />
+                <stop offset="100%" stopColor="rgb(25, 144, 135)" stopOpacity="0.6" />
+              </linearGradient>
+              {/* Glow filter */}
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              {/* Animated gradient for traveling dot */}
+              <radialGradient id="dotGradient">
+                <stop offset="0%" stopColor="rgb(25, 144, 135)" stopOpacity="1" />
+                <stop offset="100%" stopColor="rgb(25, 144, 135)" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+
+            {/* Shadow/glow line underneath */}
+            <path
+              d="M 60 50 Q 200 15, 400 50 T 740 50"
+              stroke="url(#lineGradientEnhanced)"
+              strokeWidth="8"
+              fill="none"
+              strokeLinecap="round"
+              opacity="0.3"
+              filter="url(#glow)"
+            />
+
+            {/* Main flowing line */}
+            <path
+              d="M 60 50 Q 200 15, 400 50 T 740 50"
+              stroke="url(#lineGradientEnhanced)"
+              strokeWidth="3"
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray="8 4"
+              className="animate-pulse"
+            />
+
+            {/* Multiple animated dots traveling along the path */}
+            <circle r="6" fill="rgb(25, 144, 135)" filter="url(#glow)">
+              <animateMotion dur="3s" repeatCount="indefinite" path="M 60 50 Q 200 15, 400 50 T 740 50" />
+            </circle>
+            <circle r="4" fill="rgb(194, 120, 86)" filter="url(#glow)">
+              <animateMotion dur="3s" repeatCount="indefinite" begin="1s" path="M 60 50 Q 200 15, 400 50 T 740 50" />
+            </circle>
+            <circle r="5" fill="rgb(25, 144, 135)" filter="url(#glow)">
+              <animateMotion dur="3s" repeatCount="indefinite" begin="2s" path="M 60 50 Q 200 15, 400 50 T 740 50" />
+            </circle>
+          </svg>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 relative z-10">
+            {/* Stat 1 — Providers */}
+            <div className="group text-center">
+              <div className="relative inline-block mb-6">
+                {/* Outer pulsing ring */}
+                <div className="absolute inset-0 w-36 h-36 -m-4 rounded-full bg-gradient-to-br from-primary-400/20 to-transparent animate-ping opacity-20" style={{ animationDuration: '3s' }} />
+
+                {/* Main circle container */}
+                <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-primary-100 to-white flex items-center justify-center shadow-xl shadow-primary-500/20 group-hover:shadow-2xl group-hover:shadow-primary-500/30 transition-all duration-700 group-hover:scale-110">
+                  {/* Inner decorative ring */}
+                  <div className="absolute inset-2 rounded-full border-2 border-dashed border-primary-200/50 animate-spin" style={{ animationDuration: '20s' }} />
+
+                  {/* Icon container */}
+                  <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-500">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Step badge */}
+                <div className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white text-sm font-bold flex items-center justify-center shadow-lg shadow-primary-500/40 border-4 border-white">
+                  1
+                </div>
+              </div>
+
+              <p className="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight tabular-nums mb-2 group-hover:text-primary-700 transition-colors duration-300">
+                {providersCount.toLocaleString()}+
+              </p>
+              <p className="text-gray-700 font-semibold text-lg">Providers Listed</p>
+            </div>
+
+            {/* Stat 2 — Families (Center, emphasized) */}
+            <div className="group text-center md:mt-6">
+              <div className="relative inline-block mb-6">
+                {/* Outer pulsing ring */}
+                <div className="absolute inset-0 w-44 h-44 -m-5 rounded-full bg-gradient-to-br from-warm-400/25 to-transparent animate-ping opacity-25" style={{ animationDuration: '2.5s' }} />
+
+                {/* Secondary glow ring */}
+                <div className="absolute inset-0 w-40 h-40 -m-3 rounded-full border-2 border-warm-300/30 animate-pulse" />
+
+                {/* Main circle container - larger for emphasis */}
+                <div className="relative w-34 h-34 rounded-full bg-gradient-to-br from-warm-100 via-white to-warm-50 flex items-center justify-center shadow-2xl shadow-warm-500/25 group-hover:shadow-3xl group-hover:shadow-warm-500/40 transition-all duration-700 group-hover:scale-110" style={{ width: '136px', height: '136px' }}>
+                  {/* Inner decorative ring */}
+                  <div className="absolute inset-3 rounded-full border-2 border-dashed border-warm-200/50 animate-spin" style={{ animationDuration: '15s', animationDirection: 'reverse' }} />
+
+                  {/* Floating hearts decoration */}
+                  <div className="absolute -top-1 -left-1 w-4 h-4 text-warm-400 animate-bounce" style={{ animationDuration: '2s' }}>
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  </div>
+                  <div className="absolute -top-2 right-2 w-3 h-3 text-warm-300 animate-bounce" style={{ animationDuration: '2.5s', animationDelay: '0.5s' }}>
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  </div>
+
+                  {/* Icon container */}
+                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-warm-400 via-warm-500 to-warm-600 flex items-center justify-center shadow-xl transform group-hover:rotate-6 group-hover:scale-105 transition-all duration-500">
+                    <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Step badge */}
+                <div className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-gradient-to-br from-warm-500 to-warm-700 text-white text-sm font-bold flex items-center justify-center shadow-lg shadow-warm-500/40 border-4 border-white">
+                  2
+                </div>
+              </div>
+
+              <p className="text-5xl md:text-6xl font-bold text-gray-900 tracking-tight tabular-nums mb-2 group-hover:text-warm-600 transition-colors duration-300">
+                {familiesCount.toLocaleString()}+
+              </p>
+              <p className="text-gray-700 font-semibold text-xl">Families Connected</p>
+            </div>
+
+            {/* Stat 3 — Cities */}
+            <div className="group text-center">
+              <div className="relative inline-block mb-6">
+                {/* Outer pulsing ring */}
+                <div className="absolute inset-0 w-36 h-36 -m-4 rounded-full bg-gradient-to-br from-primary-500/20 to-transparent animate-ping opacity-20" style={{ animationDuration: '3.5s' }} />
+
+                {/* Main circle container */}
+                <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-primary-100 to-white flex items-center justify-center shadow-xl shadow-primary-600/20 group-hover:shadow-2xl group-hover:shadow-primary-600/30 transition-all duration-700 group-hover:scale-110">
+                  {/* Inner decorative ring */}
+                  <div className="absolute inset-2 rounded-full border-2 border-dashed border-primary-200/50 animate-spin" style={{ animationDuration: '25s' }} />
+
+                  {/* Decorative dots representing cities */}
+                  <div className="absolute top-0 left-1/2 w-2 h-2 bg-primary-400 rounded-full -translate-x-1/2 -translate-y-1" />
+                  <div className="absolute bottom-1 right-2 w-1.5 h-1.5 bg-primary-300 rounded-full" />
+                  <div className="absolute top-4 left-1 w-1.5 h-1.5 bg-primary-300 rounded-full" />
+
+                  {/* Icon container */}
+                  <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center shadow-lg transform group-hover:-rotate-12 transition-transform duration-500">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Step badge */}
+                <div className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-gradient-to-br from-primary-600 to-primary-800 text-white text-sm font-bold flex items-center justify-center shadow-lg shadow-primary-600/40 border-4 border-white">
+                  3
+                </div>
+              </div>
+
+              <p className="text-4xl md:text-5xl font-bold text-primary-600 tracking-tight tabular-nums mb-2 group-hover:text-primary-700 transition-colors duration-300">
+                {citiesCount.toLocaleString()}+
+              </p>
+              <p className="text-gray-700 font-semibold text-lg">Cities Covered</p>
+            </div>
+          </div>
         </div>
 
-        {/* Stats Row */}
-        <div ref={ref} className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {/* Stat 1 */}
-          <div className="text-center p-8 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm hover:shadow-md hover:border-primary-100 transition-all duration-300 group">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-              <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-            <p className="text-4xl md:text-5xl font-semibold text-gray-900 tracking-tight tabular-nums">
-              {providersCount.toLocaleString()}+
-            </p>
-            <p className="mt-2 text-gray-500 text-base font-medium">care providers</p>
-          </div>
-
-          {/* Stat 2 */}
-          <div className="text-center p-8 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm hover:shadow-md hover:border-warm-100 transition-all duration-300 group">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-warm-100 to-warm-50 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-              <svg className="w-6 h-6 text-warm-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <p className="text-4xl md:text-5xl font-semibold text-gray-900 tracking-tight tabular-nums">
-              {familiesCount.toLocaleString()}+
-            </p>
-            <p className="mt-2 text-gray-500 text-base font-medium">families helped</p>
-          </div>
-
-          {/* Stat 3 */}
-          <div className="text-center p-8 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm hover:shadow-md hover:border-primary-100 transition-all duration-300 group">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-              <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <p className="text-4xl md:text-5xl font-semibold text-primary-600 tracking-tight tabular-nums">
-              {citiesCount.toLocaleString()}+
-            </p>
-            <p className="mt-2 text-gray-500 text-base font-medium">cities covered</p>
-          </div>
-        </div>
-
-        {/* Video Card */}
-        <div className="mt-6 relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl overflow-hidden">
-          {/* Diagonal stripe pattern overlay */}
-          <div
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage: `repeating-linear-gradient(
-                -45deg,
-                transparent,
-                transparent 10px,
-                rgba(255,255,255,0.1) 10px,
-                rgba(255,255,255,0.1) 11px
-              )`
-            }}
-          />
-
-          {/* Teal glow effect behind video area */}
-          <div className="absolute top-1/2 right-0 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl transform translate-x-1/4 -translate-y-1/2" />
-          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary-400/10 rounded-full blur-2xl" />
-
-          {/* Decorative elements */}
-          <div className="absolute top-12 left-12 w-20 h-20 border border-white/10 rounded-full" />
-          <div className="absolute top-16 left-16 w-12 h-12 border border-primary-500/20 rounded-full" />
-          <div className="absolute bottom-12 left-1/4 w-2 h-2 bg-primary-400/40 rounded-full" />
-          <div className="absolute bottom-20 left-1/3 w-1.5 h-1.5 bg-white/20 rounded-full" />
-
+      {/* Video Card */}
+      <div className="mt-6 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative bg-gradient-to-br from-warm-50 to-warm-100/50 rounded-3xl overflow-hidden border border-warm-200/50">
           <div className="relative flex items-center justify-center p-8 md:p-12 lg:p-16">
             <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 w-full max-w-6xl">
               {/* Left side - Text content */}
               <div className="flex flex-col lg:w-[40%]">
                 {/* Chapter badge */}
                 <div className="flex items-center gap-3 mb-6">
-                  <span className="inline-flex items-center gap-1.5 bg-primary-500/20 border border-primary-500/30 text-primary-400 text-xs font-semibold px-3 py-1.5 rounded-full">
+                  <span className="inline-flex items-center gap-1.5 bg-primary-500/10 border border-primary-500/20 text-primary-600 text-xs font-semibold px-3 py-1.5 rounded-full">
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                     </svg>
                     Chapter 1
                   </span>
-                  <span className="text-gray-500 text-sm">Documentary Series</span>
+                  <span className="text-warm-600 text-sm">Documentary Series</span>
                 </div>
 
-                <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight mb-4">
+                <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight mb-4">
                   Aging in America
                 </h3>
 
-                <p className="text-gray-400 text-base mb-8 max-w-sm leading-relaxed">
+                <p className="text-gray-600 text-base mb-8 max-w-sm leading-relaxed">
                   Explore the realities of senior care in America and discover how families navigate finding the right care.
                 </p>
 
                 <div className="flex flex-col sm:flex-row sm:items-center items-start gap-4">
                   <Link
                     href="/browse"
-                    className="group inline-flex items-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold px-6 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30 hover:scale-[1.02]"
+                    className="group inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6 py-3.5 rounded-xl transition-all duration-300"
                   >
                     Start Your Search
                     <svg className="w-5 h-5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -498,7 +605,7 @@ function SocialProofSection() {
                     href="https://youtube.com/@olera"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                    className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
                   >
                     Watch more chapters
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -510,12 +617,9 @@ function SocialProofSection() {
 
               {/* Right side - YouTube Video */}
               <div className="lg:w-[60%]">
-                <div className="relative w-full group">
-                  {/* Glow ring around video */}
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-primary-500/50 via-primary-400/30 to-primary-500/50 rounded-2xl blur-sm opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
-
+                <div className="relative w-full">
                   {/* Video container */}
-                  <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black ring-1 ring-white/10">
+                  <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black">
                     <iframe
                       src="https://www.youtube.com/embed/TiVrqkrYhEc"
                       title="Aging in America - Chapter 1"
@@ -534,26 +638,199 @@ function SocialProofSection() {
   );
 }
 
+// Bento Grid Data - Senior care focused images (2 rows, 4 columns)
+const bentoCards = [
+  {
+    id: 1,
+    title: "Memory Care",
+    image: "https://images.unsplash.com/photo-1442458370899-ae20e367c5d8?w=800&q=80", // grandmother with family
+    href: "/browse?type=memory-care",
+    className: "col-span-1 row-span-2", // tall left
+  },
+  {
+    id: 2,
+    title: "Home Care",
+    image: "https://images.unsplash.com/photo-1586105251261-72a756497a11?w=800&q=80", // caregiver and senior
+    href: "/browse?type=home-care",
+    className: "col-span-2 row-span-1", // wide top middle
+  },
+  {
+    id: 3,
+    title: "Assisted Living",
+    image: "https://images.unsplash.com/photo-1505455184862-554165e5f6ba?w=800&q=80", // happy seniors
+    href: "/browse?type=assisted-living",
+    className: "col-span-1 row-span-2", // tall right
+  },
+  {
+    id: 4,
+    title: "Skilled Nursing",
+    image: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80", // nurse caring
+    href: "/browse?type=skilled-nursing",
+    className: "col-span-1 row-span-1", // square bottom left-middle
+  },
+  {
+    id: 5,
+    title: "Hospice Care",
+    image: "https://images.unsplash.com/photo-1559234938-b60fff04894d?w=800&q=80", // caring hands
+    href: "/browse?type=hospice",
+    className: "col-span-1 row-span-1", // square bottom right-middle
+  },
+];
+
+// Bento Grid Section Component
+function BentoGridSection() {
+  return (
+    <section className="py-16 md:py-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-6">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+            Explore Care Options
+          </h2>
+        </div>
+
+        {/* Bento Grid - 2 rows, 4 columns */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5 auto-rows-[180px] md:auto-rows-[200px]">
+          {bentoCards.map((card, index) => (
+            <Link
+              key={card.id}
+              href={card.href}
+              className={`relative overflow-hidden rounded-3xl group cursor-pointer ${card.className}`}
+              style={{
+                boxShadow: '0 4px 20px -2px rgba(0,0,0,0.1), 0 2px 8px -2px rgba(0,0,0,0.06)',
+              }}
+            >
+              {/* Image layer */}
+              <div className="absolute inset-0">
+                <Image
+                  src={card.image}
+                  alt={card.title}
+                  fill
+                  className="object-cover transition-all duration-700 ease-out group-hover:scale-110"
+                />
+              </div>
+
+              {/* Gradient overlays - creates depth */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/5 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-br from-primary-600/0 via-transparent to-warm-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+              {/* Shine effect on hover */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+              </div>
+
+              {/* Top badge - category indicator */}
+              <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                <span className="inline-flex items-center gap-2 bg-white text-gray-900 text-xs font-semibold px-3 py-2 rounded-full shadow-lg">
+                  <span className="w-2 h-2 bg-primary-500 rounded-full animate-pulse" />
+                  Browse {card.title}
+                </span>
+              </div>
+
+              {/* Bottom content */}
+              <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
+                <div className="flex items-end justify-between gap-3">
+                  {/* Title with animated underline */}
+                  <div className="flex-1">
+                    <h3 className="text-white font-bold text-lg md:text-xl lg:text-2xl leading-tight tracking-tight">
+                      {card.title}
+                    </h3>
+                    <div className="h-0.5 bg-primary-400 mt-2 w-0 group-hover:w-full transition-all duration-500 ease-out rounded-full" />
+                  </div>
+
+                  {/* Arrow button */}
+                  <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:bg-primary-500 group-hover:border-primary-500 transition-all duration-300 group-hover:scale-110">
+                    <svg
+                      className="w-5 h-5 md:w-6 md:h-6 text-white transition-transform duration-300 group-hover:translate-x-0.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Corner accent */}
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-primary-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+              {/* Ring on hover */}
+              <div className="absolute inset-0 rounded-3xl ring-2 ring-white/0 group-hover:ring-white/30 transition-all duration-300" />
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // Browse by Care Type Section Component
 function BrowseByCareTypeSection() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>("home-care");
   const [isAnimating, setIsAnimating] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const updateScrollState = useCallback(() => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      // Reset scroll to start when category changes
+      container.scrollTo({ left: 0, behavior: "instant" });
+      // Small delay to let DOM update before checking scroll state
+      setTimeout(() => {
+        updateScrollState();
+      }, 50);
+      container.addEventListener("scroll", updateScrollState);
+      window.addEventListener("resize", updateScrollState);
+      return () => {
+        container.removeEventListener("scroll", updateScrollState);
+        window.removeEventListener("resize", updateScrollState);
+      };
+    }
+  }, [updateScrollState, selectedCategory]);
+
+  const scrollLeft = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const newScrollLeft = Math.max(0, container.scrollLeft - 400);
+      container.scrollTo({ left: newScrollLeft, behavior: "smooth" });
+    }
+  };
+
+  const scrollRight = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      const newScrollLeft = Math.min(maxScroll, container.scrollLeft + 400);
+      container.scrollTo({ left: newScrollLeft, behavior: "smooth" });
+    }
+  };
 
   const handleCategoryClick = (categoryId: string) => {
     if (selectedCategory === categoryId) {
-      // Deselect if clicking the same category
-      setIsAnimating(true);
-      setTimeout(() => {
-        setSelectedCategory(null);
-        setIsAnimating(false);
-      }, 200);
+      // Don't deselect - always keep one selected
+      return;
     } else {
       // Select new category
       setIsAnimating(true);
+      // Reset scroll position when changing category
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ left: 0, behavior: "instant" });
+      }
       setTimeout(() => {
         setSelectedCategory(categoryId);
         setIsAnimating(false);
-      }, selectedCategory ? 200 : 0);
+      }, 200);
     }
   };
 
@@ -569,37 +846,37 @@ function BrowseByCareTypeSection() {
           </h2>
         </div>
 
-        {/* Category Cards Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Category Tabs - Equal width grid layout */}
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">
           {careCategories.map((category) => {
             const isSelected = selectedCategory === category.id;
             return (
               <button
                 key={category.id}
                 onClick={() => handleCategoryClick(category.id)}
-                className={`rounded-2xl border-2 text-left transition-all duration-200 px-5 py-6 flex flex-col items-start ${
+                className={`rounded-xl border transition-all duration-200 px-3 py-3 flex items-center justify-center gap-2 ${
                   isSelected
-                    ? "border-primary-500 bg-primary-50 shadow-md"
-                    : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md"
+                    ? "border-primary-500 bg-primary-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                {/* Icon with background container */}
+                {/* Icon */}
                 <div
-                  className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors duration-200 ${
+                  className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center transition-colors duration-200 ${
                     isSelected
                       ? "bg-primary-100"
                       : "bg-primary-50"
                   }`}
                 >
-                  <svg className="w-7 h-7 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={category.iconPath} />
                   </svg>
                 </div>
                 {/* Category Name */}
-                <span className={`font-semibold block text-lg transition-colors duration-200 ${
+                <span className={`font-medium text-sm transition-colors duration-200 ${
                   isSelected
                     ? "text-primary-700"
-                    : "text-gray-800"
+                    : "text-gray-700"
                 }`}>
                   {category.name}
                 </span>
@@ -608,26 +885,64 @@ function BrowseByCareTypeSection() {
           })}
         </div>
 
-        {/* Provider Cards - Revealed on category selection */}
+        {/* Provider Cards - Horizontal Scroll */}
         <div
           className={`overflow-hidden transition-all duration-300 ease-out ${
             selectedCategory && !isAnimating
-              ? "max-h-[3000px] opacity-100"
+              ? "max-h-[700px] opacity-100"
               : "max-h-0 opacity-0"
           }`}
         >
           <div className={`pt-8 transition-all duration-300 ${isAnimating ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"}`}>
-            {/* Provider Grid - 6 cards in 3 columns, 2 rows */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {selectedProviders.slice(0, 6).map((provider) => (
-                <div key={provider.id} className="h-[512px]">
-                  <ProviderCard provider={provider} />
-                </div>
-              ))}
+            {/* Horizontal Scroll Container with Arrows */}
+            <div className="relative overflow-visible">
+              {/* Left Arrow */}
+              <button
+                onClick={scrollLeft}
+                disabled={!canScrollLeft}
+                className={`hidden md:flex absolute -left-6 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white shadow-xl border border-gray-200 items-center justify-center transition-all ${
+                  canScrollLeft
+                    ? "hover:bg-gray-50 hover:shadow-2xl hover:scale-105 cursor-pointer"
+                    : "opacity-50 cursor-not-allowed"
+                }`}
+                aria-label="Scroll left"
+              >
+                <svg className={`w-6 h-6 ${canScrollLeft ? "text-gray-700" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              {/* Right Arrow */}
+              <button
+                onClick={scrollRight}
+                disabled={!canScrollRight}
+                className={`hidden md:flex absolute -right-6 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white shadow-xl border border-gray-200 items-center justify-center transition-all ${
+                  canScrollRight
+                    ? "hover:bg-gray-50 hover:shadow-2xl hover:scale-105 cursor-pointer"
+                    : "opacity-50 cursor-not-allowed"
+                }`}
+                aria-label="Scroll right"
+              >
+                <svg className={`w-6 h-6 ${canScrollRight ? "text-gray-700" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              {/* Scrollable Container */}
+              <div
+                ref={scrollContainerRef}
+                className="flex gap-5 overflow-x-scroll pb-4 scrollbar-hide"
+              >
+                {selectedProviders.slice(0, 6).map((provider) => (
+                  <div key={provider.id} className="flex-shrink-0 w-[370px] h-[512px]">
+                    <ProviderCard provider={provider} />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* View All Link */}
-            <div className="mt-6 text-center">
+            <div className="mt-4 text-center">
               <Link
                 href={`/browse?type=${selectedCategory}`}
                 className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium"
@@ -905,6 +1220,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Bento Grid - Explore Care Options */}
+      <BentoGridSection />
 
       {/* Social Proof Stats Section */}
       <SocialProofSection />
