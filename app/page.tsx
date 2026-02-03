@@ -230,45 +230,103 @@ const topProviders: Provider[] = [
   },
 ];
 
-// Care type options for the quick filters
-const careTypes = [
-  {
-    id: "assisted-living",
-    name: "Assisted Living",
-    description: "Support with daily activities in a residential setting",
-    icon: "🏠",
-  },
+// Care categories for the browse section
+const careCategories = [
   {
     id: "home-care",
     name: "Home Care",
-    description: "Care services delivered in the comfort of home",
-    icon: "🏡",
+    iconPath: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+  },
+  {
+    id: "home-health",
+    name: "Home Health",
+    iconPath: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z",
+  },
+  {
+    id: "assisted-living",
+    name: "Assisted Living",
+    iconPath: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
   },
   {
     id: "memory-care",
     name: "Memory Care",
-    description: "Specialized care for dementia and Alzheimer's",
-    icon: "💜",
+    iconPath: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
   },
   {
     id: "independent-living",
     name: "Independent Living",
-    description: "Active adult communities with amenities",
-    icon: "🌳",
+    iconPath: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
   },
   {
-    id: "skilled-nursing",
-    name: "Skilled Nursing",
-    description: "24/7 medical care and rehabilitation",
-    icon: "🏥",
-  },
-  {
-    id: "respite-care",
-    name: "Respite Care",
-    description: "Short-term relief for family caregivers",
-    icon: "🤝",
+    id: "nursing-home",
+    name: "Nursing Home",
+    iconPath: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10",
   },
 ];
+
+// Sample providers by category (in real app, this would come from API)
+const providersByCategory: Record<string, Provider[]> = {
+  "home-care": [
+    { ...topProviders[3], primaryCategory: "Home Care" },
+    { ...topProviders[0], id: "hc-2", primaryCategory: "Home Care", name: "Comfort Keepers" },
+    { ...topProviders[1], id: "hc-3", primaryCategory: "Home Care", name: "Home Instead" },
+    { ...topProviders[2], id: "hc-4", primaryCategory: "Home Care", name: "Visiting Angels" },
+    { ...topProviders[4], id: "hc-5", primaryCategory: "Home Care", name: "Right at Home" },
+    { ...topProviders[5], id: "hc-6", primaryCategory: "Home Care", name: "BrightStar Care" },
+    { ...topProviders[0], id: "hc-7", primaryCategory: "Home Care", name: "Seniors Helping Seniors" },
+    { ...topProviders[1], id: "hc-8", primaryCategory: "Home Care", name: "Griswold Home Care" },
+  ],
+  "home-health": [
+    { ...topProviders[5], primaryCategory: "Home Health" },
+    { ...topProviders[0], id: "hh-2", primaryCategory: "Home Health", name: "Amedisys" },
+    { ...topProviders[1], id: "hh-3", primaryCategory: "Home Health", name: "LHC Group" },
+    { ...topProviders[2], id: "hh-4", primaryCategory: "Home Health", name: "Kindred at Home" },
+    { ...topProviders[3], id: "hh-5", primaryCategory: "Home Health", name: "AccordantHealth" },
+    { ...topProviders[4], id: "hh-6", primaryCategory: "Home Health", name: "Enhabit Home Health" },
+    { ...topProviders[5], id: "hh-7", primaryCategory: "Home Health", name: "Elara Caring" },
+    { ...topProviders[0], id: "hh-8", primaryCategory: "Home Health", name: "Bayada Home Health" },
+  ],
+  "assisted-living": [
+    { ...topProviders[0], primaryCategory: "Assisted Living" },
+    { ...topProviders[1], id: "al-2", primaryCategory: "Assisted Living", name: "Brookdale Senior Living" },
+    { ...topProviders[2], id: "al-3", primaryCategory: "Assisted Living", name: "Five Star Senior Living" },
+    { ...topProviders[3], id: "al-4", primaryCategory: "Assisted Living", name: "Atria Senior Living" },
+    { ...topProviders[4], id: "al-5", primaryCategory: "Assisted Living", name: "Senior Lifestyle" },
+    { ...topProviders[5], id: "al-6", primaryCategory: "Assisted Living", name: "Silverado" },
+    { ...topProviders[0], id: "al-7", primaryCategory: "Assisted Living", name: "Belmont Village" },
+    { ...topProviders[1], id: "al-8", primaryCategory: "Assisted Living", name: "Merrill Gardens" },
+  ],
+  "memory-care": [
+    { ...topProviders[1], primaryCategory: "Memory Care" },
+    { ...topProviders[0], id: "mc-2", primaryCategory: "Memory Care", name: "Silverado Memory Care" },
+    { ...topProviders[2], id: "mc-3", primaryCategory: "Memory Care", name: "Arden Courts" },
+    { ...topProviders[3], id: "mc-4", primaryCategory: "Memory Care", name: "Sunrise Memory Care" },
+    { ...topProviders[4], id: "mc-5", primaryCategory: "Memory Care", name: "Artis Senior Living" },
+    { ...topProviders[5], id: "mc-6", primaryCategory: "Memory Care", name: "Autumn Leaves" },
+    { ...topProviders[0], id: "mc-7", primaryCategory: "Memory Care", name: "The Kensington" },
+    { ...topProviders[1], id: "mc-8", primaryCategory: "Memory Care", name: "Bridges by EPOCH" },
+  ],
+  "independent-living": [
+    { ...topProviders[2], primaryCategory: "Independent Living" },
+    { ...topProviders[0], id: "il-2", primaryCategory: "Independent Living", name: "Vi Living" },
+    { ...topProviders[1], id: "il-3", primaryCategory: "Independent Living", name: "Holiday Retirement" },
+    { ...topProviders[3], id: "il-4", primaryCategory: "Independent Living", name: "Erickson Living" },
+    { ...topProviders[4], id: "il-5", primaryCategory: "Independent Living", name: "Leisure Care" },
+    { ...topProviders[5], id: "il-6", primaryCategory: "Independent Living", name: "Watermark Retirement" },
+    { ...topProviders[0], id: "il-7", primaryCategory: "Independent Living", name: "Aegis Living" },
+    { ...topProviders[1], id: "il-8", primaryCategory: "Independent Living", name: "Kisco Senior Living" },
+  ],
+  "nursing-home": [
+    { ...topProviders[5], primaryCategory: "Nursing Home" },
+    { ...topProviders[0], id: "nh-2", primaryCategory: "Nursing Home", name: "Genesis HealthCare" },
+    { ...topProviders[1], id: "nh-3", primaryCategory: "Nursing Home", name: "PruittHealth" },
+    { ...topProviders[2], id: "nh-4", primaryCategory: "Nursing Home", name: "Ensign Group" },
+    { ...topProviders[3], id: "nh-5", primaryCategory: "Nursing Home", name: "Sabra Health Care" },
+    { ...topProviders[4], id: "nh-6", primaryCategory: "Nursing Home", name: "ProMedica Senior Care" },
+    { ...topProviders[5], id: "nh-7", primaryCategory: "Nursing Home", name: "Life Care Centers" },
+    { ...topProviders[0], id: "nh-8", primaryCategory: "Nursing Home", name: "Consulate Health Care" },
+  ],
+};
 
 // Care type options for search dropdown
 const careTypeOptions = [
@@ -324,7 +382,7 @@ function SocialProofSection() {
   );
 
   return (
-    <section className="py-20 md:py-28 bg-gradient-to-b from-gray-50 via-white to-white overflow-hidden relative">
+    <section className="py-16 md:py-24 bg-gradient-to-b from-gray-50 via-white to-white overflow-hidden relative">
       {/* Decorative background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary-100/40 rounded-full blur-3xl" />
@@ -412,6 +470,115 @@ function SocialProofSection() {
                 {tag}
               </span>
             ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Browse by Care Type Section Component
+function BrowseByCareTypeSection() {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleCategoryClick = (categoryId: string) => {
+    if (selectedCategory === categoryId) {
+      // Deselect if clicking the same category
+      setIsAnimating(true);
+      setTimeout(() => {
+        setSelectedCategory(null);
+        setIsAnimating(false);
+      }, 200);
+    } else {
+      // Select new category
+      setIsAnimating(true);
+      setTimeout(() => {
+        setSelectedCategory(categoryId);
+        setIsAnimating(false);
+      }, selectedCategory ? 200 : 0);
+    }
+  };
+
+  const selectedProviders = selectedCategory ? providersByCategory[selectedCategory] || [] : [];
+
+  return (
+    <section className="pt-16 md:pt-24 pb-6 md:pb-10 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Section Header */}
+        <div className="mb-6">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+            Browse by care type
+          </h2>
+        </div>
+
+        {/* Category Cards Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {careCategories.map((category) => {
+            const isSelected = selectedCategory === category.id;
+            return (
+              <button
+                key={category.id}
+                onClick={() => handleCategoryClick(category.id)}
+                className={`rounded-2xl border-2 text-left transition-all duration-200 px-5 py-6 flex flex-col items-start ${
+                  isSelected
+                    ? "border-primary-500 bg-primary-50 shadow-md"
+                    : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md"
+                }`}
+              >
+                {/* Icon with background container */}
+                <div
+                  className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors duration-200 ${
+                    isSelected
+                      ? "bg-primary-100"
+                      : "bg-primary-50"
+                  }`}
+                >
+                  <svg className="w-7 h-7 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={category.iconPath} />
+                  </svg>
+                </div>
+                {/* Category Name */}
+                <span className={`font-semibold block text-lg transition-colors duration-200 ${
+                  isSelected
+                    ? "text-primary-700"
+                    : "text-gray-800"
+                }`}>
+                  {category.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Provider Cards - Revealed on category selection */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-out ${
+            selectedCategory && !isAnimating
+              ? "max-h-[3000px] opacity-100"
+              : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className={`pt-8 transition-all duration-300 ${isAnimating ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"}`}>
+            {/* Provider Grid - 6 cards in 3 columns, 2 rows */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {selectedProviders.slice(0, 6).map((provider) => (
+                <ProviderCard key={provider.id} provider={provider} />
+              ))}
+            </div>
+
+            {/* View All Link */}
+            <div className="mt-6 text-center">
+              <Link
+                href={`/browse?type=${selectedCategory}`}
+                className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium"
+              >
+                View all {careCategories.find(c => c.id === selectedCategory)?.name} providers
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -612,11 +779,11 @@ export default function HomePage() {
       </section>
 
       {/* Top Providers Section */}
-      <section className="py-16 md:py-20 bg-white">
+      <section className="py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header with title and arrows */}
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
               Top providers near you
             </h2>
             <div className="flex gap-2">
@@ -679,49 +846,104 @@ export default function HomePage() {
       {/* Social Proof Stats Section */}
       <SocialProofSection />
 
-      {/* Care Types Section */}
-      <section className="py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-              What Type of Care Are You Looking For?
-            </h2>
-            <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-              Every situation is different. Explore options to find what works
-              best for your family.
-            </p>
-          </div>
+      {/* Browse by Care Type Section */}
+      <BrowseByCareTypeSection />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {careTypes.map((type) => (
-              <Link
-                key={type.id}
-                href={`/browse?type=${type.id}`}
-                className="card p-6 hover:border-primary-200 group"
-              >
-                <div className="text-4xl mb-4">{type.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
-                  {type.name}
-                </h3>
-                <p className="mt-2 text-gray-600">{type.description}</p>
-                <div className="mt-4 text-primary-600 font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
-                  <span>Browse options</span>
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+      {/* Featured Video Section - Connected to Browse by Care Type */}
+      <section className="pt-4 md:pt-6 pb-16 md:pb-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl overflow-hidden">
+            {/* Diagonal stripe pattern overlay */}
+            <div
+              className="absolute inset-0 opacity-[0.03]"
+              style={{
+                backgroundImage: `repeating-linear-gradient(
+                  -45deg,
+                  transparent,
+                  transparent 10px,
+                  rgba(255,255,255,0.1) 10px,
+                  rgba(255,255,255,0.1) 11px
+                )`
+              }}
+            />
+
+            {/* Teal glow effect behind video area */}
+            <div className="absolute top-1/2 right-0 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl transform translate-x-1/4 -translate-y-1/2" />
+            <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary-400/10 rounded-full blur-2xl" />
+
+            {/* Decorative elements */}
+            <div className="absolute top-12 left-12 w-20 h-20 border border-white/10 rounded-full" />
+            <div className="absolute top-16 left-16 w-12 h-12 border border-primary-500/20 rounded-full" />
+            <div className="absolute bottom-12 left-1/4 w-2 h-2 bg-primary-400/40 rounded-full" />
+            <div className="absolute bottom-20 left-1/3 w-1.5 h-1.5 bg-white/20 rounded-full" />
+
+            <div className="relative flex items-center justify-center p-8 md:p-12 lg:p-16">
+              <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 w-full max-w-6xl">
+                {/* Left side - Text content */}
+                <div className="flex flex-col lg:w-[40%]">
+                  {/* Chapter badge */}
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="inline-flex items-center gap-1.5 bg-primary-500/20 border border-primary-500/30 text-primary-400 text-xs font-semibold px-3 py-1.5 rounded-full">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                      </svg>
+                      Chapter 1
+                    </span>
+                    <span className="text-gray-500 text-sm">Documentary Series</span>
+                  </div>
+
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight mb-4">
+                    Aging in America
+                  </h2>
+
+                  <p className="text-gray-400 text-base mb-8 max-w-sm leading-relaxed">
+                    Explore the realities of senior care in America and discover how families navigate finding the right care.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center items-start gap-4">
+                    <Link
+                      href="/browse"
+                      className="group inline-flex items-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold px-6 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30 hover:scale-[1.02]"
+                    >
+                      Start Your Search
+                      <svg className="w-5 h-5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                    <Link
+                      href="https://youtube.com/@olera"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                    >
+                      Watch more chapters
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </Link>
+                  </div>
                 </div>
-              </Link>
-            ))}
+
+                {/* Right side - YouTube Video */}
+                <div className="lg:w-[60%]">
+                  <div className="relative w-full group">
+                    {/* Glow ring around video */}
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary-500/50 via-primary-400/30 to-primary-500/50 rounded-2xl blur-sm opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
+
+                    {/* Video container */}
+                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black ring-1 ring-white/10">
+                      <iframe
+                        src="https://www.youtube.com/embed/TiVrqkrYhEc"
+                        title="Aging in America - Chapter 1"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
