@@ -38,13 +38,7 @@ interface ProfileSwitcherProps {
 export default function ProfileSwitcher({ onSwitch, variant = "dropdown" }: ProfileSwitcherProps) {
   const { profiles, activeProfile, switchProfile } = useAuth();
 
-  // Don't render if user has 0 or 1 profile (no switching needed)
-  // But always show the "Add profile" link
   const hasMultipleProfiles = profiles.length > 1;
-
-  if (profiles.length === 0 && variant === "dropdown") {
-    return null;
-  }
 
   const handleSwitch = async (profileId: string) => {
     if (profileId === activeProfile?.id) return;

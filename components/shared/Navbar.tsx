@@ -60,34 +60,21 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link
-              href="/browse"
-              className="text-gray-600 hover:text-primary-600 font-medium transition-colors focus:outline-none focus:underline"
-            >
-              Browse Care
-            </Link>
-            {isProvider && (
+            {/* Browse Care — only for unauthenticated users and families */}
+            {(!isAuthenticated || isFamily) && (
               <Link
-                href="/browse/families"
+                href="/browse"
                 className="text-gray-600 hover:text-primary-600 font-medium transition-colors focus:outline-none focus:underline"
               >
-                Browse Families
+                Browse Care
               </Link>
             )}
-            {activeProfile?.type === "organization" && (
+            {isAuthenticated && hasProfile && (
               <Link
-                href="/browse/caregivers"
+                href="/portal"
                 className="text-gray-600 hover:text-primary-600 font-medium transition-colors focus:outline-none focus:underline"
               >
-                Browse Caregivers
-              </Link>
-            )}
-            {activeProfile?.type === "caregiver" && (
-              <Link
-                href="/browse/providers"
-                className="text-gray-600 hover:text-primary-600 font-medium transition-colors focus:outline-none focus:underline"
-              >
-                Find Jobs
+                Dashboard
               </Link>
             )}
             {!isAuthenticated && (
@@ -152,13 +139,6 @@ export default function Navbar() {
                     {hasProfile ? (
                       <>
                         <Link
-                          href="/portal"
-                          className="block px-4 py-3 text-base text-gray-700 hover:bg-gray-50 transition-colors"
-                          onClick={() => setIsUserMenuOpen(false)}
-                        >
-                          Dashboard
-                        </Link>
-                        <Link
                           href="/portal/profile"
                           className="block px-4 py-3 text-base text-gray-700 hover:bg-gray-50 transition-colors"
                           onClick={() => setIsUserMenuOpen(false)}
@@ -191,15 +171,13 @@ export default function Navbar() {
                         Complete your profile
                       </Link>
                     )}
-                    {/* Profile switcher — only show if user has multiple profiles */}
-                    {profiles.length > 1 && (
-                      <div className="border-t border-gray-100 mt-1 pt-1">
-                        <ProfileSwitcher
-                          onSwitch={() => setIsUserMenuOpen(false)}
-                          variant="dropdown"
-                        />
-                      </div>
-                    )}
+                    {/* Profile switcher — always show to enable adding profiles */}
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <ProfileSwitcher
+                        onSwitch={() => setIsUserMenuOpen(false)}
+                        variant="dropdown"
+                      />
+                    </div>
                     <div className="border-t border-gray-100 mt-1 pt-1">
                       <button
                         type="button"
@@ -277,38 +255,13 @@ export default function Navbar() {
         {isMobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-gray-100">
             <div className="flex flex-col space-y-4">
-              <Link
-                href="/browse"
-                className="text-gray-600 hover:text-primary-600 font-medium"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Browse Care
-              </Link>
-              {isProvider && (
+              {(!isAuthenticated || isFamily) && (
                 <Link
-                  href="/browse/families"
+                  href="/browse"
                   className="text-gray-600 hover:text-primary-600 font-medium"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  Browse Families
-                </Link>
-              )}
-              {activeProfile?.type === "organization" && (
-                <Link
-                  href="/browse/caregivers"
-                  className="text-gray-600 hover:text-primary-600 font-medium"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Browse Caregivers
-                </Link>
-              )}
-              {activeProfile?.type === "caregiver" && (
-                <Link
-                  href="/browse/providers"
-                  className="text-gray-600 hover:text-primary-600 font-medium"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Find Jobs
+                  Browse Care
                 </Link>
               )}
               {!isAuthenticated && (
@@ -365,6 +318,13 @@ export default function Navbar() {
                       Complete your profile
                     </Link>
                   )}
+                  {/* Profile switcher */}
+                  <div className="border-t border-gray-100 pt-2">
+                    <ProfileSwitcher
+                      onSwitch={() => setIsMobileMenuOpen(false)}
+                      variant="dropdown"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => {

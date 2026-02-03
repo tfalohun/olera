@@ -171,6 +171,26 @@ export default function PortalDashboard() {
             href={`/provider/${activeProfile.slug}`}
             show={isProvider}
           />
+
+          {/* Role-specific discovery actions */}
+          <QuickAction
+            title="Browse families"
+            description="Find families looking for care in your area."
+            href="/browse/families"
+            show={isProvider}
+          />
+          <QuickAction
+            title="Browse caregivers"
+            description="Find experienced caregivers to join your team."
+            href="/browse/caregivers"
+            show={activeProfile.type === "organization"}
+          />
+          <QuickAction
+            title="Find job opportunities"
+            description="Browse organizations looking for caregivers."
+            href="/browse/providers"
+            show={activeProfile.type === "caregiver"}
+          />
         </div>
       </div>
     </div>

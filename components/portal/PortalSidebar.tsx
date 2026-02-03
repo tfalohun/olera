@@ -16,8 +16,13 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-function getNavItems(profileType: string | undefined): NavItem[] {
-  const common: NavItem[] = [
+interface NavSection {
+  label?: string;
+  items: NavItem[];
+}
+
+function getNavSections(profileType: string | undefined): NavSection[] {
+  const mainItems: NavItem[] = [
     {
       label: "Dashboard",
       href: "/portal",
@@ -39,7 +44,7 @@ function getNavItems(profileType: string | undefined): NavItem[] {
   ];
 
   if (profileType === "organization" || profileType === "caregiver") {
-    common.push(
+    mainItems.push(
       {
         label: "Connections",
         href: "/portal/connections",
@@ -63,7 +68,7 @@ function getNavItems(profileType: string | undefined): NavItem[] {
   }
 
   if (profileType === "family") {
-    common.push(
+    mainItems.push(
       {
         label: "My Inquiries",
         href: "/portal/connections",
@@ -85,14 +90,46 @@ function getNavItems(profileType: string | undefined): NavItem[] {
     );
   }
 
-  return common;
+  const sections: NavSection[] = [{ items: mainItems }];
+
+  // Discover section — role-aware browse links
+  const discoverItems: NavItem[] = [];
+  const searchIcon = (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  );
+
+  if (profileType === "organization") {
+    discoverItems.push(
+      { label: "Browse Families", href: "/browse/families", icon: searchIcon },
+      { label: "Browse Caregivers", href: "/browse/caregivers", icon: searchIcon }
+    );
+  } else if (profileType === "caregiver") {
+    discoverItems.push(
+      { label: "Browse Families", href: "/browse/families", icon: searchIcon },
+      { label: "Find Job Opportunities", href: "/browse/providers", icon: searchIcon }
+    );
+  } else if (profileType === "family") {
+    discoverItems.push(
+      { label: "Browse Providers", href: "/browse", icon: searchIcon }
+    );
+  }
+
+  if (discoverItems.length > 0) {
+    sections.push({ label: "Discover", items: discoverItems });
+  }
+
+  return sections;
 }
 
 export default function PortalSidebar({ profile }: PortalSidebarProps) {
   const pathname = usePathname();
   const { profiles } = useAuth();
-  const navItems = getNavItems(profile?.type);
-  const hasMultipleProfiles = profiles.length > 1;
+  const navSections = getNavSections(profile?.type);
+
+  // Flat list of main items for mobile bottom nav
+  const mainItems = navSections[0]?.items || [];
 
   return (
     <>
@@ -117,43 +154,52 @@ export default function PortalSidebar({ profile }: PortalSidebarProps) {
           )}
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => {
-            const isActive =
-              item.href === "/portal"
-                ? pathname === "/portal"
-                : pathname.startsWith(item.href);
+        <nav className="flex-1 p-4">
+          {navSections.map((section, idx) => (
+            <div key={idx} className={idx > 0 ? "mt-6" : ""}>
+              {section.label && (
+                <p className="px-4 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  {section.label}
+                </p>
+              )}
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const isActive =
+                    item.href === "/portal"
+                      ? pathname === "/portal"
+                      : pathname.startsWith(item.href);
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={[
-                  "flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors min-h-[44px]",
-                  isActive
-                    ? "bg-primary-50 text-primary-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
-                ].join(" ")}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            );
-          })}
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={[
+                        "flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors min-h-[44px]",
+                        isActive
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                      ].join(" ")}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        {/* Profile switcher at bottom of sidebar */}
-        {hasMultipleProfiles && (
-          <div className="p-4 border-t border-gray-100">
-            <ProfileSwitcher variant="sidebar" />
-          </div>
-        )}
+        {/* Profile switcher at bottom of sidebar — always show */}
+        <div className="p-4 border-t border-gray-100">
+          <ProfileSwitcher variant="sidebar" />
+        </div>
       </aside>
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
         <div className="flex justify-around py-2">
-          {navItems.map((item) => {
+          {mainItems.map((item) => {
             const isActive =
               item.href === "/portal"
                 ? pathname === "/portal"
