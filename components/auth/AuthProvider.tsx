@@ -20,7 +20,7 @@ interface AuthContextValue extends AuthState {
   closeAuthModal: () => void;
   isAuthModalOpen: boolean;
   authModalDefaultView: AuthModalView;
-  signOut: () => Promise<void>;
+  signOut: (onComplete?: () => void) => Promise<void>;
   refreshAccountData: () => Promise<void>;
   switchProfile: (profileId: string) => Promise<void>;
 }
@@ -181,11 +181,11 @@ export default function AuthProvider({ children }: AuthProviderProps) {
         return;
       }
 
-      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
+      if (event === "SIGNED_IN" && session?.user) {
+        // New sign-in: must fetch fresh data (ok to show loading briefly)
         const version = ++versionRef.current;
         const data = await fetchAccountData(session.user.id);
 
-        // Only apply if this is still the latest request
         if (cancelled || versionRef.current !== version) return;
 
         setState({
@@ -196,6 +196,28 @@ export default function AuthProvider({ children }: AuthProviderProps) {
           membership: data?.membership ?? null,
           isLoading: false,
         });
+      }
+
+      if (event === "TOKEN_REFRESHED" && session?.user) {
+        // Token refresh: keep existing state if refetch fails.
+        // This prevents random sign-out appearance on slow networks.
+        const version = ++versionRef.current;
+        const data = await fetchAccountData(session.user.id);
+
+        if (cancelled || versionRef.current !== version) return;
+
+        // Only update state if fetch succeeded — never clear on failure
+        if (data) {
+          setState({
+            user: { id: session.user.id, email: session.user.email! },
+            account: data.account,
+            activeProfile: data.activeProfile,
+            profiles: data.profiles,
+            membership: data.membership,
+            isLoading: false,
+          });
+        }
+        // If data is null (timeout/error), silently keep existing state
       }
     });
 
@@ -223,8 +245,9 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   /**
    * Sign out. Let the auth listener handle state clearing.
    * Only clear state manually if signOut fails.
+   * Optional onComplete callback fires after state is cleared (e.g. to redirect).
    */
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (onComplete?: () => void) => {
     if (!configured) return;
     const supabase = createClient();
     const { error } = await supabase.auth.signOut();
@@ -235,6 +258,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
       setState({ ...EMPTY_STATE });
     }
     // On success, the onAuthStateChange SIGNED_OUT handler clears state
+    onComplete?.();
   }, [configured]);
 
   /**

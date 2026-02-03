@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import ProfileSwitcher from "@/components/shared/ProfileSwitcher";
@@ -8,6 +9,7 @@ import NavDropdown from "@/components/shared/NavDropdown";
 import { NAV_CATEGORIES } from "@/components/shared/NavMenuData";
 
 export default function Navbar() {
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, account, activeProfile, profiles, isLoading, openAuthModal, signOut } =
     useAuth();
@@ -67,21 +69,18 @@ export default function Navbar() {
               NAV_CATEGORIES.map((cat) => (
                 <NavDropdown key={cat.label} category={cat} />
               ))}
-            {!isAuthenticated && (
-              <>
-                <div className="w-px h-5 bg-gray-200" />
-                <Link
-                  href="/for-providers"
-                  className="text-gray-700 hover:text-primary-600 text-[15px] font-medium transition-colors focus:outline-none focus:underline whitespace-nowrap"
-                >
-                  For Providers
-                </Link>
-              </>
-            )}
           </div>
 
-          {/* Desktop Auth */}
+          {/* Desktop Right — utility actions */}
           <div className="hidden lg:flex items-center space-x-4">
+            {!isAuthenticated && !isLoading && (
+              <Link
+                href="/for-providers"
+                className="text-gray-700 hover:text-primary-600 text-[15px] font-medium transition-colors focus:outline-none focus:underline whitespace-nowrap"
+              >
+                For Providers
+              </Link>
+            )}
             {isLoading ? (
               <div className="w-20 h-8" />
             ) : isAuthenticated ? (
@@ -183,7 +182,7 @@ export default function Navbar() {
                         type="button"
                         onClick={() => {
                           setIsUserMenuOpen(false);
-                          signOut();
+                          signOut(() => router.push("/"));
                         }}
                         className="w-full text-left px-4 py-3 text-base text-red-600 hover:bg-red-50 transition-colors"
                       >
@@ -320,7 +319,7 @@ export default function Navbar() {
                     type="button"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
-                      signOut();
+                      signOut(() => router.push("/"));
                     }}
                     className="text-left text-red-600 hover:text-red-700 font-medium"
                   >
