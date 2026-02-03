@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
-
-// Inter is a clean, readable font that works well for healthcare/care platforms
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-});
+import AuthProvider from "@/components/auth/AuthProvider";
+import AuthModal from "@/components/auth/AuthModal";
 
 export const metadata: Metadata = {
   title: "Olera | Find Senior Care Near You",
@@ -31,10 +26,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-gray-50 min-h-screen flex flex-col`}>
-        <Navbar />
-        <main className="flex-grow">{children}</main>
-        <Footer />
+      <body className="bg-gray-50 min-h-screen flex flex-col font-sans">
+        <AuthProvider>
+          <Navbar />
+          <main className="flex-grow">{children}</main>
+          <Footer />
+          <AuthModal />
+        </AuthProvider>
       </body>
     </html>
   );

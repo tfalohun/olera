@@ -239,6 +239,26 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
             </div>
           </div>
         )}
+        {/* Favorite Button */}
+        <button
+          className="absolute top-3 right-3 w-11 h-11 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors focus-ring"
+          aria-label={`Save ${provider.name}`}
+        >
+          <svg
+            className="w-5 h-5 text-gray-400 hover:text-primary-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+            />
+          </svg>
+        </button>
       </div>
 
       {/* Content - 256px to match image height */}
@@ -298,29 +318,14 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
           </div>
         </div>
 
-        {/* Stack 3: Highlights + Accepted Payments (anchored to bottom) */}
-        <div className="mt-auto">
-          {/* Highlights */}
-          <div className="flex flex-wrap gap-1.5">
-            {displayedHighlights.map((highlight) => (
-              <span
-                key={highlight}
-                className="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full"
-              >
-                {highlight}
-              </span>
-            ))}
-          </div>
+        {/* Address */}
+        <p className="text-gray-500 text-base mt-1">{provider.address}</p>
 
-          {/* Accepted Payments - Hidden by default, revealed on hover */}
-          {provider.acceptedPayments && provider.acceptedPayments.length > 0 && (
-            <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-out">
-              <div className="overflow-hidden group-hover:overflow-visible">
-                <div className="flex items-center justify-between pt-3">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-semibold text-gray-900">Accepts:</span>{" "}
-                    {provider.acceptedPayments.join(", ")}
-                  </p>
+        {/* Price */}
+        <div className="mt-3">
+          <p className="text-gray-500 text-sm">Estimated Pricing</p>
+          <p className="text-gray-900 font-semibold">{provider.priceRange}</p>
+        </div>
 
                   {/* Info Icon with Tooltip */}
                   <div className="relative group/info flex-shrink-0 ml-2">
@@ -355,6 +360,14 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
             </div>
           )}
         </div>
+
+        {/* CTA Button */}
+        <Link
+          href={`/provider/${provider.slug}`}
+          className="mt-4 w-full btn-primary text-base"
+        >
+          View provider
+        </Link>
       </div>
     </Link>
   );
