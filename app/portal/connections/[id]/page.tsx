@@ -222,7 +222,20 @@ export default function ConnectionDetailPage() {
 
 function ProfileEmbed({ profile, showContact }: { profile: Profile; showContact: boolean }) {
   const locationStr = [profile.city, profile.state].filter(Boolean).join(", ");
+  const fullLocationStr = [profile.address, profile.city, profile.state].filter(Boolean).join(", ");
   const meta = profile.metadata as OrganizationMetadata & CaregiverMetadata & FamilyMetadata;
+
+  const rateStr =
+    meta?.hourly_rate_min && meta?.hourly_rate_max
+      ? `$${meta.hourly_rate_min}-${meta.hourly_rate_max}/hr`
+      : null;
+  const priceRange = meta?.price_range || rateStr;
+
+  // Profile page link — providers go to /provider/slug, families go to /profile/id
+  const profileHref =
+    (profile.type === "organization" || profile.type === "caregiver") && profile.slug
+      ? `/provider/${profile.slug}`
+      : `/profile/${profile.id}`;
 
   return (
     <div className="space-y-4">
@@ -273,6 +286,14 @@ function ProfileEmbed({ profile, showContact }: { profile: Profile; showContact:
               <dd className="text-gray-900 font-medium">{meta.relationship_to_recipient}</dd>
             </div>
           )}
+          {meta?.budget_min != null && meta?.budget_max != null && (
+            <div>
+              <dt className="text-sm text-gray-500">Budget Range</dt>
+              <dd className="text-gray-900 font-medium">
+                ${meta.budget_min.toLocaleString()} &ndash; ${meta.budget_max.toLocaleString()}/mo
+              </dd>
+            </div>
+          )}
           {meta?.care_needs && meta.care_needs.length > 0 && (
             <div className="col-span-2">
               <dt className="text-sm text-gray-500 mb-1">Care Needs</dt>
@@ -297,6 +318,24 @@ function ProfileEmbed({ profile, showContact }: { profile: Profile; showContact:
               <dd className="text-gray-900 font-medium">{meta.years_experience} years</dd>
             </div>
           )}
+          {rateStr && (
+            <div>
+              <dt className="text-sm text-gray-500">Rate</dt>
+              <dd className="text-gray-900 font-medium">{rateStr}</dd>
+            </div>
+          )}
+          {meta?.availability && (
+            <div>
+              <dt className="text-sm text-gray-500">Availability</dt>
+              <dd className="text-gray-900 font-medium">{meta.availability}</dd>
+            </div>
+          )}
+          {meta?.languages && meta.languages.length > 0 && (
+            <div>
+              <dt className="text-sm text-gray-500">Languages</dt>
+              <dd className="text-gray-900 font-medium">{meta.languages.join(", ")}</dd>
+            </div>
+          )}
           {meta?.certifications && meta.certifications.length > 0 && (
             <div className="col-span-2">
               <dt className="text-sm text-gray-500 mb-1">Certifications</dt>
@@ -312,15 +351,81 @@ function ProfileEmbed({ profile, showContact }: { profile: Profile; showContact:
         </div>
       )}
 
+      {/* Organization-specific info */}
+      {profile.type === "organization" && (
+        <div className="grid grid-cols-2 gap-4">
+          {meta?.year_founded && (
+            <div>
+              <dt className="text-sm text-gray-500">Year Founded</dt>
+              <dd className="text-gray-900 font-medium">{meta.year_founded}</dd>
+            </div>
+          )}
+          {meta?.bed_count && (
+            <div>
+              <dt className="text-sm text-gray-500">Capacity</dt>
+              <dd className="text-gray-900 font-medium">{meta.bed_count} beds</dd>
+            </div>
+          )}
+          {meta?.staff_count && (
+            <div>
+              <dt className="text-sm text-gray-500">Staff</dt>
+              <dd className="text-gray-900 font-medium">{meta.staff_count} members</dd>
+            </div>
+          )}
+          {priceRange && (
+            <div>
+              <dt className="text-sm text-gray-500">Pricing</dt>
+              <dd className="text-gray-900 font-medium">{priceRange}</dd>
+            </div>
+          )}
+          {meta?.accepts_medicaid !== undefined && (
+            <div>
+              <dt className="text-sm text-gray-500">Medicaid</dt>
+              <dd className="text-gray-900 font-medium">{meta.accepts_medicaid ? "Accepted" : "Not accepted"}</dd>
+            </div>
+          )}
+          {meta?.accepts_medicare !== undefined && (
+            <div>
+              <dt className="text-sm text-gray-500">Medicare</dt>
+              <dd className="text-gray-900 font-medium">{meta.accepts_medicare ? "Accepted" : "Not accepted"}</dd>
+            </div>
+          )}
+          {meta?.amenities && meta.amenities.length > 0 && (
+            <div className="col-span-2">
+              <dt className="text-sm text-gray-500 mb-1">Amenities &amp; Services</dt>
+              <dd className="flex flex-wrap gap-2">
+                {meta.amenities.map((amenity) => (
+                  <span key={amenity} className="bg-primary-50 text-primary-700 text-xs px-2.5 py-1 rounded-full">
+                    {amenity}
+                  </span>
+                ))}
+              </dd>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Expanded location — shown when connection is accepted */}
+      {showContact && fullLocationStr && fullLocationStr !== locationStr && (
+        <div>
+          <p className="text-sm text-gray-500">Full Address</p>
+          <p className="text-gray-900">{fullLocationStr}{profile.zip ? ` ${profile.zip}` : ""}</p>
+        </div>
+      )}
+
       {/* Contact info — only shown when connection is accepted */}
       {showContact && (
         <div className="bg-primary-50 rounded-lg p-4 mt-4">
           <p className="text-sm font-medium text-primary-800 mb-2">Contact Information</p>
           {profile.phone && (
-            <p className="text-base text-primary-700">Phone: {profile.phone}</p>
+            <p className="text-base text-primary-700">
+              Phone: <a href={`tel:${profile.phone}`} className="underline">{profile.phone}</a>
+            </p>
           )}
           {profile.email && (
-            <p className="text-base text-primary-700">Email: {profile.email}</p>
+            <p className="text-base text-primary-700">
+              Email: <a href={`mailto:${profile.email}`} className="underline">{profile.email}</a>
+            </p>
           )}
           {profile.website && (
             <p className="text-base text-primary-700">
@@ -333,18 +438,17 @@ function ProfileEmbed({ profile, showContact }: { profile: Profile; showContact:
         </div>
       )}
 
-      {/* Link to full profile page (for providers) */}
-      {(profile.type === "organization" || profile.type === "caregiver") && profile.slug && (
-        <Link
-          href={`/provider/${profile.slug}`}
-          className="text-primary-600 hover:underline text-sm font-medium inline-flex items-center gap-1"
-        >
-          View full public profile
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-      )}
+      {/* Link to full profile page */}
+      <Link
+        href={profileHref}
+        target="_blank"
+        className="text-primary-600 hover:underline text-sm font-medium inline-flex items-center gap-1"
+      >
+        View full profile
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </Link>
     </div>
   );
 }

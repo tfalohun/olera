@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
@@ -133,23 +134,33 @@ function CaregiverCard({
   const certifications = meta?.certifications || [];
   const experience = meta?.years_experience;
 
+  const cardHeader = (
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-10 h-10 bg-secondary-100 text-secondary-700 rounded-full flex items-center justify-center text-sm font-semibold">
+        {hasAccess ? caregiver.display_name.charAt(0).toUpperCase() : "?"}
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900">
+          {hasAccess ? caregiver.display_name : blurName(caregiver.display_name)}
+        </h3>
+        {locationStr && (
+          <p className="text-sm text-gray-500">
+            {hasAccess ? locationStr : "***"}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 bg-secondary-100 text-secondary-700 rounded-full flex items-center justify-center text-sm font-semibold">
-          {hasAccess ? caregiver.display_name.charAt(0).toUpperCase() : "?"}
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            {hasAccess ? caregiver.display_name : blurName(caregiver.display_name)}
-          </h3>
-          {locationStr && (
-            <p className="text-sm text-gray-500">
-              {hasAccess ? locationStr : "***"}
-            </p>
-          )}
-        </div>
-      </div>
+      {hasAccess && caregiver.slug ? (
+        <Link href={`/provider/${caregiver.slug}`} target="_blank" className="block hover:opacity-80 transition-opacity">
+          {cardHeader}
+        </Link>
+      ) : (
+        cardHeader
+      )}
 
       {experience && (
         <p className="text-base text-gray-600 mb-2">

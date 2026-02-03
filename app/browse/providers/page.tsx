@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { canEngage } from "@/lib/membership";
 import type { Profile, OrganizationMetadata } from "@/lib/types";
 import RoleGate from "@/components/shared/RoleGate";
 import ConnectButton from "@/components/shared/ConnectButton";
+import UpgradePrompt from "@/components/providers/UpgradePrompt";
 
 export default function BrowseProvidersForJobsPage() {
   return (
@@ -20,9 +22,15 @@ export default function BrowseProvidersForJobsPage() {
 }
 
 function BrowseProvidersContent() {
-  const { activeProfile } = useAuth();
+  const { activeProfile, membership } = useAuth();
   const [orgs, setOrgs] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const hasAccess = canEngage(
+    activeProfile?.type,
+    membership,
+    "initiate_contact"
+  );
 
   useEffect(() => {
     if (!activeProfile || !isSupabaseConfigured()) {
@@ -70,6 +78,12 @@ function BrowseProvidersContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {!hasAccess && (
+          <div className="mb-8">
+            <UpgradePrompt context="apply to organizations and share your profile" />
+          </div>
+        )}
+
         {orgs.length === 0 ? (
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
@@ -130,7 +144,7 @@ function OrgJobCard({
       </div>
 
       <div className="p-5">
-        <Link href={`/provider/${org.slug}`} className="hover:underline">
+        <Link href={`/provider/${org.slug}`} target="_blank" className="hover:underline">
           <h3 className="text-lg font-semibold text-gray-900 mb-1">
             {org.display_name}
           </h3>

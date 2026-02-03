@@ -147,25 +147,35 @@ function FamilyCard({
     : null;
   const careNeeds = meta?.care_needs || family.care_types || [];
 
+  const cardContent = (
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-10 h-10 bg-secondary-100 text-secondary-700 rounded-full flex items-center justify-center text-sm font-semibold">
+        {hasAccess
+          ? family.display_name.charAt(0).toUpperCase()
+          : "?"}
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900">
+          {hasAccess ? family.display_name : blurName(family.display_name)}
+        </h3>
+        {locationStr && (
+          <p className="text-sm text-gray-500">
+            {hasAccess ? locationStr : "***"}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 bg-secondary-100 text-secondary-700 rounded-full flex items-center justify-center text-sm font-semibold">
-          {hasAccess
-            ? family.display_name.charAt(0).toUpperCase()
-            : "?"}
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            {hasAccess ? family.display_name : blurName(family.display_name)}
-          </h3>
-          {locationStr && (
-            <p className="text-sm text-gray-500">
-              {hasAccess ? locationStr : "***"}
-            </p>
-          )}
-        </div>
-      </div>
+      {hasAccess ? (
+        <Link href={`/profile/${family.id}`} target="_blank" className="block hover:opacity-80 transition-opacity">
+          {cardContent}
+        </Link>
+      ) : (
+        cardContent
+      )}
 
       {timeline && (
         <p className="text-base text-gray-600 mb-2">

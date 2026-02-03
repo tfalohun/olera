@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/components/ui/Button";
+import Link from "next/link";
 
 interface UpgradePromptProps {
   /** What the user was trying to do when they hit the paywall */
@@ -31,12 +31,15 @@ export default function UpgradePrompt({
         Upgrade to Pro
       </h3>
       <p className="text-base text-gray-600 mb-4">
-        Your free trial has ended. Upgrade to {context}.
+        Upgrade to {context}.
       </p>
       <div className="space-y-2">
-        <Button fullWidth>
+        <Link
+          href="/portal/settings"
+          className="block w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors text-center min-h-[44px]"
+        >
           Upgrade — $25/month
-        </Button>
+        </Link>
         <p className="text-sm text-gray-500">
           or $249/year (save 17%)
         </p>
