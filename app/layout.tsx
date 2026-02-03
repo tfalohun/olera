@@ -1,15 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
 import AuthProvider from "@/components/auth/AuthProvider";
 import AuthModal from "@/components/auth/AuthModal";
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Olera | Find Senior Care Near You",
@@ -32,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-gray-50 min-h-screen flex flex-col`}>
+      <body className="bg-gray-50 min-h-screen flex flex-col font-sans">
         <AuthProvider>
           <Navbar />
           <main className="flex-grow">{children}</main>

@@ -1,13 +1,42 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getTrialDaysRemaining } from "@/lib/membership";
 import EmptyState from "@/components/ui/EmptyState";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import UpgradePrompt from "@/components/providers/UpgradePrompt";
 
 export default function PortalDashboard() {
   const { activeProfile, membership } = useAuth();
+  const [inquiryCount, setInquiryCount] = useState<number | null>(null);
+
+  const isProvider =
+    activeProfile?.type === "organization" ||
+    activeProfile?.type === "caregiver";
+  const isFamily = activeProfile?.type === "family";
+
+  // Fetch real connection counts
+  useEffect(() => {
+    if (!activeProfile || !isSupabaseConfigured()) return;
+
+    const fetchCounts = async () => {
+      const supabase = createClient();
+      const column = isProvider ? "to_profile_id" : "from_profile_id";
+      const { count } = await supabase
+        .from("connections")
+        .select("*", { count: "exact", head: true })
+        .eq(column, activeProfile.id)
+        .eq("type", "inquiry");
+
+      setInquiryCount(count ?? 0);
+    };
+
+    fetchCounts();
+  }, [activeProfile, isProvider]);
 
   if (!activeProfile) {
     return (
@@ -18,10 +47,6 @@ export default function PortalDashboard() {
       />
     );
   }
-
-  const isProvider =
-    activeProfile.type === "organization" ||
-    activeProfile.type === "caregiver";
 
   const trialDaysRemaining = getTrialDaysRemaining(membership?.trial_ends_at);
 
@@ -58,13 +83,8 @@ export default function PortalDashboard() {
 
       {/* Expired trial banner */}
       {isProvider && membership?.status === "free" && (
-        <div className="mb-8 bg-warm-50 border border-warm-200 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-warm-800 mb-1">
-            Trial ended
-          </h2>
-          <p className="text-base text-warm-700">
-            Upgrade to Pro to respond to inquiries and connect with families.
-          </p>
+        <div className="mb-8">
+          <UpgradePrompt context="respond to inquiries and connect with families" />
         </div>
       )}
 
@@ -77,11 +97,17 @@ export default function PortalDashboard() {
         />
         {isProvider && (
           <>
-            <StatCard
-              label="Inquiries received"
-              value="0"
-              description="No inquiries yet"
-            />
+            <Link href="/portal/connections" className="block">
+              <StatCard
+                label="Inquiries received"
+                value={inquiryCount !== null ? String(inquiryCount) : "—"}
+                description={
+                  inquiryCount === 0
+                    ? "No inquiries yet"
+                    : "Click to view"
+                }
+              />
+            </Link>
             <StatCard
               label="Response rate"
               value="—"
@@ -89,13 +115,19 @@ export default function PortalDashboard() {
             />
           </>
         )}
-        {activeProfile.type === "family" && (
+        {isFamily && (
           <>
-            <StatCard
-              label="Inquiries sent"
-              value="0"
-              description="Request a consultation to get started"
-            />
+            <Link href="/portal/connections" className="block">
+              <StatCard
+                label="Inquiries sent"
+                value={inquiryCount !== null ? String(inquiryCount) : "—"}
+                description={
+                  inquiryCount === 0
+                    ? "Request a consultation to get started"
+                    : "Click to view"
+                }
+              />
+            </Link>
             <StatCard
               label="Saved providers"
               value="0"
@@ -121,7 +153,17 @@ export default function PortalDashboard() {
             title="Browse providers"
             description="Find and compare care options near you."
             href="/browse"
-            show={activeProfile.type === "family"}
+            show={isFamily}
+          />
+          <QuickAction
+            title="View connections"
+            description={
+              isProvider
+                ? "See inquiries from families."
+                : "See your sent inquiries."
+            }
+            href="/portal/connections"
+            show={true}
           />
           <QuickAction
             title="View your public profile"
@@ -145,7 +187,7 @@ function StatCard({
   description: string;
 }) {
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200">
+    <div className="bg-white p-6 rounded-xl border border-gray-200 hover:border-primary-200 transition-colors">
       <p className="text-base text-gray-500 mb-1">{label}</p>
       <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
       <p className="text-base text-gray-500">{description}</p>
@@ -167,7 +209,7 @@ function QuickAction({
   if (!show) return null;
 
   return (
-    <a
+    <Link
       href={href}
       className="block p-6 bg-white rounded-xl border border-gray-200 hover:border-primary-300 hover:shadow-sm transition-all group"
     >
@@ -175,15 +217,6 @@ function QuickAction({
         {title}
       </h3>
       <p className="text-base text-gray-600">{description}</p>
-    </a>
+    </Link>
   );
-}
-
-function getTrialDaysRemaining(trialEndsAt: string | null | undefined): number | null {
-  if (!trialEndsAt) return null;
-  const now = new Date();
-  const end = new Date(trialEndsAt);
-  const diff = end.getTime() - now.getTime();
-  if (diff <= 0) return 0;
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }

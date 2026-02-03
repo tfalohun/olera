@@ -1,57 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ProviderCard, { Provider } from "@/components/providers/ProviderCard";
-
-// Dummy provider data
-const topProviders: Provider[] = [
-  {
-    id: "1",
-    slug: "sunrise-senior-living",
-    name: "Sunrise Senior Living",
-    image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800",
-    address: "1234 Oak Street, Austin, TX 78701",
-    rating: 4.8,
-    priceRange: "$3,500-5,000 / mo",
-    careTypes: ["Assisted Living", "Memory Care", "Respite Care"],
-    verified: true,
-  },
-  {
-    id: "2",
-    slug: "harmony-care-home",
-    name: "Harmony Care Home",
-    image: "https://images.unsplash.com/photo-1586105251261-72a756497a11?w=800",
-    address: "5678 Maple Avenue, Austin, TX 78702",
-    rating: 4.6,
-    priceRange: "$4,200-6,500 / mo",
-    careTypes: ["Memory Care", "Hospice", "Skilled Nursing"],
-    verified: true,
-  },
-  {
-    id: "3",
-    slug: "golden-years-residence",
-    name: "Golden Years Residence",
-    image: "https://images.unsplash.com/photo-1559526324-593bc073d938?w=800",
-    address: "910 Pine Road, Austin, TX 78703",
-    rating: 4.5,
-    priceRange: "$2,800-4,200 / mo",
-    careTypes: ["Independent Living", "Assisted Living"],
-    verified: true,
-  },
-  {
-    id: "4",
-    slug: "caring-hearts-home-care",
-    name: "Caring Hearts Home Care",
-    image: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=800",
-    address: "Serving Greater Austin Area",
-    rating: 4.9,
-    priceRange: "$25-45 / hr",
-    careTypes: ["Home Care", "Respite Care", "Companion Care"],
-    verified: true,
-  },
-];
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import type { Profile, OrganizationMetadata, CaregiverMetadata } from "@/lib/types";
 
 // Care type options for the quick filters
 const careTypes = [
@@ -59,48 +12,69 @@ const careTypes = [
     id: "assisted-living",
     name: "Assisted Living",
     description: "Support with daily activities in a residential setting",
-    icon: "🏠",
+    icon: "AL",
   },
   {
     id: "home-care",
     name: "Home Care",
     description: "Care services delivered in the comfort of home",
-    icon: "🏡",
+    icon: "HC",
   },
   {
     id: "memory-care",
     name: "Memory Care",
     description: "Specialized care for dementia and Alzheimer's",
-    icon: "💜",
+    icon: "MC",
   },
   {
     id: "independent-living",
     name: "Independent Living",
     description: "Active adult communities with amenities",
-    icon: "🌳",
+    icon: "IL",
   },
   {
     id: "skilled-nursing",
     name: "Skilled Nursing",
     description: "24/7 medical care and rehabilitation",
-    icon: "🏥",
+    icon: "SN",
   },
   {
     id: "respite-care",
     name: "Respite Care",
     description: "Short-term relief for family caregivers",
-    icon: "🤝",
+    icon: "RC",
   },
 ];
 
 export default function HomePage() {
   const [location, setLocation] = useState("");
+  const [providers, setProviders] = useState<Profile[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    const fetchTopProviders = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .neq("type", "family")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(4);
+      if (data) setProviders(data as Profile[]);
+    };
+
+    fetchTopProviders();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (location.trim()) {
-      router.push(`/browse?location=${encodeURIComponent(location.trim())}`);
+      router.push(`/browse?q=${encodeURIComponent(location.trim())}`);
+    } else {
+      router.push("/browse");
     }
   };
 
@@ -223,51 +197,32 @@ export default function HomePage() {
       </section>
 
       {/* Top Providers Section */}
-      <section className="py-16 md:py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-              Top providers near you
-            </h2>
-            <div className="flex gap-2">
-              <button
-                className="w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:border-gray-300 hover:text-gray-600 transition-colors focus-ring"
-                aria-label="Previous providers"
+      {providers.length > 0 && (
+        <section className="py-16 md:py-24 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                Featured providers
+              </h2>
+              <Link
+                href="/browse"
+                className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                className="w-11 h-11 rounded-full border border-primary-600 flex items-center justify-center text-primary-600 hover:bg-primary-50 transition-colors focus-ring"
-                aria-label="Next providers"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                View all
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-              </button>
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {providers.map((profile) => (
+                <HomeProviderCard key={profile.id} profile={profile} />
+              ))}
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {topProviders.map((provider) => (
-              <ProviderCard key={provider.id} provider={provider} />
-            ))}
-          </div>
-
-          <div className="mt-8 text-center">
-            <Link
-              href="/browse"
-              className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium"
-            >
-              View all providers
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Care Types Section */}
       <section className="py-16 md:py-24">
@@ -289,7 +244,11 @@ export default function HomePage() {
                 href={`/browse?type=${type.id}`}
                 className="card p-6 hover:border-primary-200 group"
               >
-                <div className="text-4xl mb-4">{type.icon}</div>
+                <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mb-4">
+                  <span className="text-primary-700 font-bold text-sm">
+                    {type.icon}
+                  </span>
+                </div>
                 <h3 className="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
                   {type.name}
                 </h3>
@@ -376,7 +335,7 @@ export default function HomePage() {
             Olera.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/for-providers/claim" className="btn-primary">
+            <Link href="/browse" className="btn-primary">
               Browse Care Options
             </Link>
             <Link href="/for-providers" className="btn-secondary">
@@ -386,5 +345,93 @@ export default function HomePage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function HomeProviderCard({ profile }: { profile: Profile }) {
+  const meta = profile.metadata as OrganizationMetadata & CaregiverMetadata;
+  const priceRange =
+    meta?.price_range ||
+    (meta?.hourly_rate_min && meta?.hourly_rate_max
+      ? `$${meta.hourly_rate_min}-${meta.hourly_rate_max}/hr`
+      : null);
+  const locationStr = [profile.city, profile.state].filter(Boolean).join(", ");
+  const displayedCareTypes = (profile.care_types || []).slice(0, 2);
+  const remainingCount = Math.max(0, (profile.care_types || []).length - 2);
+
+  return (
+    <Link
+      href={`/provider/${profile.slug}`}
+      className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow block"
+    >
+      <div className="relative h-48 bg-gray-200">
+        {profile.image_url ? (
+          <img
+            src={profile.image_url}
+            alt={profile.display_name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-300 flex items-center justify-center">
+            <span className="text-4xl font-bold text-primary-600/40">
+              {profile.display_name.charAt(0)}
+            </span>
+          </div>
+        )}
+
+        {profile.claim_state === "claimed" &&
+          profile.verification_state === "verified" && (
+            <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-primary-600 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1.5">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Verified
+            </div>
+          )}
+      </div>
+
+      <div className="p-4">
+        <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+          {profile.display_name}
+        </h3>
+
+        {locationStr && (
+          <p className="text-gray-500 text-base mt-1">{locationStr}</p>
+        )}
+
+        {priceRange && (
+          <div className="mt-3">
+            <p className="text-gray-500 text-sm">Estimated Pricing</p>
+            <p className="text-gray-900 font-semibold">{priceRange}</p>
+          </div>
+        )}
+
+        {displayedCareTypes.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {displayedCareTypes.map((ct) => (
+              <span
+                key={ct}
+                className="bg-gray-100 text-gray-600 text-xs px-2.5 py-1 rounded-full"
+              >
+                {ct}
+              </span>
+            ))}
+            {remainingCount > 0 && (
+              <span className="bg-gray-100 text-gray-600 text-xs px-2.5 py-1 rounded-full">
+                +{remainingCount} more
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4 text-primary-600 font-medium text-base">
+          View provider
+        </div>
+      </div>
+    </Link>
   );
 }

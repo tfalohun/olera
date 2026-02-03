@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, OrganizationMetadata, CaregiverMetadata } from "@/lib/types";
 import Badge from "@/components/ui/Badge";
+import InquiryButton from "@/components/providers/InquiryButton";
 
 export default async function ProviderPage({
   params,
@@ -248,9 +249,11 @@ export default async function ProviderPage({
               )}
 
               <div className="space-y-4">
-                <button className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-lg transition-colors min-h-[44px]">
-                  Request Consultation
-                </button>
+                <InquiryButton
+                  providerProfileId={profile.id}
+                  providerName={profile.display_name}
+                  providerSlug={profile.slug}
+                />
                 {profile.phone && (
                   <a
                     href={`tel:${profile.phone}`}
@@ -289,13 +292,13 @@ export default async function ProviderPage({
         {/* Back Link */}
         <div className="mt-8">
           <Link
-            href="/"
+            href="/browse"
             className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to home
+            Back to browse
           </Link>
         </div>
       </div>
