@@ -383,7 +383,7 @@ function SocialProofSection() {
   );
 
   return (
-    <section className="py-16 md:py-24 relative overflow-hidden">
+    <section className="pt-8 md:pt-12 pb-8 md:pb-12 relative overflow-hidden">
       {/* Section Header */}
       <div className="text-center mb-6 relative">
         <p className="text-primary-600 font-semibold text-sm uppercase tracking-wider mb-2">Trusted nationwide</p>
@@ -680,7 +680,7 @@ const bentoCards = [
 // Bento Grid Section Component
 function BentoGridSection() {
   return (
-    <section className="py-16 md:py-24">
+    <section className="pt-8 md:pt-12 pb-8 md:pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
@@ -768,7 +768,6 @@ function BentoGridSection() {
 // Browse by Care Type Section Component
 function BrowseByCareTypeSection() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>("home-care");
-  const [isAnimating, setIsAnimating] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -817,27 +816,18 @@ function BrowseByCareTypeSection() {
   };
 
   const handleCategoryClick = (categoryId: string) => {
-    if (selectedCategory === categoryId) {
-      // Don't deselect - always keep one selected
-      return;
-    } else {
-      // Select new category
-      setIsAnimating(true);
-      // Reset scroll position when changing category
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTo({ left: 0, behavior: "instant" });
-      }
-      setTimeout(() => {
-        setSelectedCategory(categoryId);
-        setIsAnimating(false);
-      }, 200);
+    if (selectedCategory === categoryId) return;
+    setSelectedCategory(categoryId);
+    // Reset scroll position when changing category
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ left: 0, behavior: "instant" });
     }
   };
 
   const selectedProviders = selectedCategory ? providersByCategory[selectedCategory] || [] : [];
 
   return (
-    <section className="pt-16 md:pt-24 pb-6 md:pb-10">
+    <section className="pt-8 md:pt-12 pb-6 md:pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="mb-6">
@@ -886,14 +876,7 @@ function BrowseByCareTypeSection() {
         </div>
 
         {/* Provider Cards - Horizontal Scroll */}
-        <div
-          className={`overflow-hidden transition-all duration-300 ease-out ${
-            selectedCategory && !isAnimating
-              ? "max-h-[700px] opacity-100"
-              : "max-h-0 opacity-0"
-          }`}
-        >
-          <div className={`pt-8 transition-all duration-300 ${isAnimating ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"}`}>
+        <div className="pt-8">
             {/* Horizontal Scroll Container with Arrows */}
             <div className="relative overflow-visible">
               {/* Left Arrow */}
@@ -945,15 +928,14 @@ function BrowseByCareTypeSection() {
             <div className="mt-4 text-center">
               <Link
                 href={`/browse?type=${selectedCategory}`}
-                className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 rounded-xl text-sm font-semibold text-white shadow-sm shadow-primary-600/20 hover:shadow-md hover:shadow-primary-600/30 transition-all"
               >
-                View all {careCategories.find(c => c.id === selectedCategory)?.name} providers
+                View all
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
             </div>
-          </div>
         </div>
       </div>
     </section>
@@ -1141,7 +1123,7 @@ export default function HomePage() {
       </section>
 
       {/* Top Providers Section */}
-      <section className="pt-8 md:pt-12 pb-16 md:pb-24">
+      <section className="pt-8 md:pt-12 pb-8 md:pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header with title and View All button */}
           <div className="flex items-center justify-between mb-6">
@@ -1150,7 +1132,7 @@ export default function HomePage() {
             </h2>
             <Link
               href="/browse"
-              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+              className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 rounded-xl text-sm font-semibold text-white shadow-sm shadow-primary-600/20 hover:shadow-md hover:shadow-primary-600/30 transition-all"
             >
               View all providers
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1210,7 +1192,7 @@ export default function HomePage() {
           <div className="mt-6 text-center sm:hidden">
             <Link
               href="/browse"
-              className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 rounded-xl text-sm font-semibold text-white shadow-sm shadow-primary-600/20 hover:shadow-md hover:shadow-primary-600/30 transition-all"
             >
               View all providers
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1230,72 +1212,334 @@ export default function HomePage() {
       {/* Browse by Care Type Section */}
       <BrowseByCareTypeSection />
 
-      {/* How It Works Section */}
-      <section className="py-16 md:py-24">
+      {/* Community Forum Preview Section */}
+      <section className="pt-8 md:pt-12 pb-8 md:pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-              How Olera Works
-            </h2>
-            <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-              Finding care shouldn&apos;t be overwhelming. We make it simple.
-            </p>
+          <div className="relative bg-gradient-to-br from-warm-50 to-warm-100/50 rounded-3xl border border-warm-200/50 p-6 md:p-10 overflow-hidden">
+
+          {/* Decorative background elements */}
+          <div className="absolute top-6 right-8 w-20 h-20 text-warm-300/20 hidden md:block">
+            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          </div>
+          <div className="absolute bottom-10 left-6 w-16 h-16 text-primary-300/10 hidden md:block rotate-12">
+            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          </div>
+          <div className="absolute top-1/2 right-1/4 w-10 h-10 text-warm-200/15 hidden lg:block -rotate-12">
+            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Header — centered */}
+          <div className="relative flex flex-col items-center text-center mb-5">
+            <div className="inline-flex items-center gap-2 mb-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+              </span>
+              <span className="text-sm font-medium text-green-600">Live conversations</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+              The Olera Community
+            </h2>
+            <Link
+              href="/community"
+              className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 mt-4 bg-primary-600 hover:bg-primary-700 rounded-xl text-sm font-semibold text-white shadow-sm shadow-primary-600/20 hover:shadow-md hover:shadow-primary-600/30 transition-all"
+            >
+              Join the conversation
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+
+          {/* Forum Posts Grid */}
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               {
-                step: "1",
-                title: "Search Your Area",
-                description:
-                  "Enter your location to see care providers near you. Filter by care type, amenities, and more.",
+                id: 1,
+                topic: "Memory Care",
+                question: "My mom was just diagnosed with early-stage dementia. What should I look for in a memory care facility?",
+                replies: 14,
+                likes: 32,
+                timeAgo: "2h ago",
+                topReply: "Start with the staff-to-resident ratio. We found that smaller communities with a 1:5 ratio made all the difference for my dad.",
+                avatars: ["S", "A", "R"],
+                accentColor: "primary",
+                iconPath: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
               },
               {
-                step: "2",
-                title: "Compare Options",
-                description:
-                  "Browse detailed profiles, read about services, and save your favorites to compare.",
+                id: 2,
+                topic: "Home Care",
+                question: "How do you handle the transition from hospital to home care? My father is being discharged next week.",
+                replies: 8,
+                likes: 19,
+                timeAgo: "5h ago",
+                topReply: "Ask the hospital for a care transition plan. We also hired a home care aide for the first 2 weeks — it was a lifesaver.",
+                avatars: ["M", "K"],
+                accentColor: "warm",
+                iconPath: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
               },
               {
-                step: "3",
-                title: "Connect Directly",
-                description:
-                  "Request a consultation with providers you're interested in. No middleman, no pressure.",
+                id: 3,
+                topic: "Costs & Insurance",
+                question: "Does Medicare cover assisted living? We're trying to figure out how to afford care for my grandmother.",
+                replies: 21,
+                likes: 47,
+                timeAgo: "8h ago",
+                topReply: "Medicare doesn't cover assisted living directly, but Medicaid might. Check your state's waiver programs — they vary a lot.",
+                avatars: ["J", "L", "D", "P"],
+                accentColor: "blue",
+                iconPath: "M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z",
               },
-            ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-primary-700 font-bold text-lg">
-                    {item.step}
-                  </span>
+            ].map((post) => {
+              const colorMap: Record<string, { tag: string; accent: string; glow: string; avatar: string; stripe: string; icon: string }> = {
+                primary: {
+                  tag: "text-primary-600 bg-primary-100/80",
+                  accent: "group-hover:border-primary-200",
+                  glow: "group-hover:shadow-primary-200/40",
+                  avatar: "bg-primary-100 text-primary-700 ring-primary-200/50",
+                  stripe: "from-primary-400 to-primary-600",
+                  icon: "text-primary-400",
+                },
+                warm: {
+                  tag: "text-warm-600 bg-warm-100/80",
+                  accent: "group-hover:border-warm-200",
+                  glow: "group-hover:shadow-warm-200/40",
+                  avatar: "bg-warm-100 text-warm-700 ring-warm-200/50",
+                  stripe: "from-warm-400 to-warm-600",
+                  icon: "text-warm-400",
+                },
+                blue: {
+                  tag: "text-blue-600 bg-blue-100/80",
+                  accent: "group-hover:border-blue-200",
+                  glow: "group-hover:shadow-blue-200/40",
+                  avatar: "bg-blue-100 text-blue-700 ring-blue-200/50",
+                  stripe: "from-blue-400 to-blue-600",
+                  icon: "text-blue-400",
+                },
+              };
+              const colors = colorMap[post.accentColor];
+
+              return (
+                <Link
+                  key={post.id}
+                  href="/community"
+                  className={`group relative bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg ${colors.accent} ${colors.glow} transition-all duration-300`}
+                >
+                  {/* Left accent stripe */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${colors.stripe} rounded-l-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+
+                  {/* Card content */}
+                  <div className="p-5">
+                    {/* Topic row */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <svg className={`w-3.5 h-3.5 ${colors.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={post.iconPath} />
+                        </svg>
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${colors.tag}`}>
+                          {post.topic}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-400 font-medium">{post.timeAgo}</span>
+                    </div>
+
+                    {/* Question */}
+                    <p className="text-[15px] font-semibold text-gray-900 leading-snug mb-4 line-clamp-2 group-hover:text-gray-800 transition-colors">
+                      {post.question}
+                    </p>
+
+                    {/* Top reply — speech bubble style */}
+                    <div className="relative mb-4">
+                      {/* Speech bubble triangle */}
+                      <div className="absolute -top-1.5 left-5 w-3 h-3 bg-gray-50 rotate-45 border-l border-t border-gray-100" />
+                      <div className="relative bg-gray-50 rounded-xl p-3.5 border border-gray-100">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ring-1 ${colors.avatar}`}>
+                            {post.avatars[0]}
+                          </div>
+                          <span className="text-[11px] text-gray-400 font-medium">Top reply</span>
+                        </div>
+                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-2">
+                          {post.topReply}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Footer — avatars, engagement, read more */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {/* Stacked avatar group */}
+                        <div className="flex -space-x-1.5">
+                          {post.avatars.slice(0, 3).map((a, i) => (
+                            <div
+                              key={i}
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ring-2 ring-white ${
+                                i === 0 ? colors.avatar.replace(/ring-[^\s]+/, '') : 'bg-gray-100 text-gray-500'
+                              }`}
+                              style={{ zIndex: 3 - i }}
+                            >
+                              {a}
+                            </div>
+                          ))}
+                          {post.avatars.length > 3 && (
+                            <div className="w-5 h-5 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-[8px] font-bold ring-2 ring-white">
+                              +{post.avatars.length - 3}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Reply count */}
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                          <span className="font-medium">{post.replies}</span>
+                        </div>
+
+                        {/* Like count */}
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                          </svg>
+                          <span className="font-medium">{post.likes}</span>
+                        </div>
+                      </div>
+
+                      {/* Read more */}
+                      <span className="text-xs font-semibold text-primary-600 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center gap-1">
+                        Read
+                        <svg className="w-3 h-3 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Mobile CTA */}
+          <div className="mt-6 text-center sm:hidden">
+            <Link
+              href="/community"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 rounded-xl text-sm font-semibold text-white shadow-sm shadow-primary-600/20 transition-all"
+            >
+              Join the conversation
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+
+          </div>
+
+          {/* Resource + Benefits Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {/* Resources Card */}
+            <Link
+              href="/resources"
+              className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary-50 via-primary-50/80 to-white border border-primary-100/60 hover:border-primary-200 hover:shadow-lg hover:shadow-primary-100/40 transition-all duration-300"
+            >
+              {/* Permanent left accent bar */}
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary-400 to-primary-600 rounded-l-2xl" />
+
+              <div className="p-5 pl-6 flex items-center gap-4">
+                {/* Icon circle */}
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                  <svg className="w-5.5 h-5.5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900">
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-gray-600">{item.description}</p>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-gray-900 leading-snug">
+                    Caregiving Guides & Articles
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-0.5">Expert resources for every stage of the care journey.</p>
+                </div>
+
+                {/* Arrow circle */}
+                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center group-hover:bg-primary-600 transition-colors duration-300">
+                  <svg className="w-4 h-4 text-primary-600 group-hover:text-white transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
-            ))}
+            </Link>
+
+            {/* Benefits Finder Card */}
+            <Link
+              href="/benefits"
+              className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-warm-50 via-warm-50/80 to-white border border-warm-100/60 hover:border-warm-200 hover:shadow-lg hover:shadow-warm-100/40 transition-all duration-300"
+            >
+              {/* Permanent left accent bar */}
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-warm-400 to-warm-600 rounded-l-2xl" />
+
+              <div className="p-5 pl-6 flex items-center gap-4">
+                {/* Icon circle */}
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-warm-100 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                  <svg className="w-5.5 h-5.5 text-warm-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                  </svg>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-gray-900 leading-snug">
+                    Find Financial Aid Programs
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-0.5">Medicare, Medicaid, and veteran benefits you may qualify for.</p>
+                </div>
+
+                {/* Arrow circle */}
+                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-warm-100 flex items-center justify-center group-hover:bg-warm-600 transition-colors duration-300">
+                  <svg className="w-4 h-4 text-warm-600 group-hover:text-white transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-            Ready to Start Your Search?
-          </h2>
-          <p className="mt-4 text-lg text-gray-600">
-            Join thousands of families who have found the right care through
-            Olera.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/browse" className="btn-primary">
-              Browse Care Options
-            </Link>
-            <Link href="/auth/signup" className="btn-secondary">
-              Create Free Account
-            </Link>
+      {/* CTA Section — matches hero width */}
+      <section className="pt-8 md:pt-12 pb-8 md:pb-12">
+        <div className="mx-4 sm:mx-6 lg:mx-8">
+          <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 px-8 py-16 md:px-16 md:py-20">
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-primary-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-warm-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-white/5" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-white/5" />
+
+            <div className="relative z-10 max-w-2xl mx-auto text-center">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
+                Ready to find the right care?
+              </h2>
+              <p className="mt-4 text-lg text-primary-100/90 max-w-xl mx-auto">
+                Join thousands of families who have found trusted care through Olera.
+              </p>
+              <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  href="/browse"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white hover:bg-gray-50 rounded-xl text-sm font-semibold text-primary-700 shadow-lg shadow-black/10 hover:shadow-xl transition-all"
+                >
+                  Browse Care Options
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-xl text-sm font-semibold text-white transition-all"
+                >
+                  Create Free Account
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
