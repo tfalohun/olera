@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
@@ -76,6 +76,18 @@ function clearFormStorage() {
 const VALID_INTENTS: ProfileType[] = ["organization", "caregiver", "family"];
 
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <div className="text-lg text-gray-500">Loading...</div>
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
+  );
+}
+
+function OnboardingContent() {
   const { user, account, activeProfile, isLoading, openAuthModal, refreshAccountData } = useAuth();
   const isAddingProfile = !!activeProfile;
   const router = useRouter();
