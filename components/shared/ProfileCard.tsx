@@ -134,10 +134,10 @@ function formatCategory(category: string | null): string | null {
 // Type-based avatar colors
 // ============================================================
 
-const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  organization: { bg: "bg-primary-100", text: "text-primary-600" },
-  caregiver: { bg: "bg-secondary-100", text: "text-secondary-600" },
-  family: { bg: "bg-warm-100", text: "text-warm-600" },
+const TYPE_COLORS: Record<string, { bg: string; text: string; gradient: string }> = {
+  organization: { bg: "bg-primary-100", text: "text-primary-600", gradient: "from-primary-50 to-primary-200" },
+  caregiver: { bg: "bg-secondary-100", text: "text-secondary-600", gradient: "from-secondary-50 to-secondary-200" },
+  family: { bg: "bg-warm-100", text: "text-warm-600", gradient: "from-warm-50 to-warm-200" },
 };
 
 // ============================================================
@@ -224,7 +224,7 @@ export default function ProfileCard({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className={`w-full h-full bg-gradient-to-br from-${card.type === "organization" ? "primary" : card.type === "caregiver" ? "secondary" : "warm"}-50 to-${card.type === "organization" ? "primary" : card.type === "caregiver" ? "secondary" : "warm"}-200 flex items-center justify-center`}>
+          <div className={`w-full h-full bg-gradient-to-br ${colors.gradient} flex items-center justify-center`}>
             <span className={`text-4xl font-bold ${colors.text} opacity-40`}>
               {card.name.charAt(0).toUpperCase()}
             </span>

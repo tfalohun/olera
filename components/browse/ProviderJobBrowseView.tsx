@@ -112,8 +112,9 @@ function ProviderJobBrowseContent({
               <ProfileCard
                 key={org.id}
                 card={profileToCard(org)}
+                blurred={!hasAccess}
                 actions={
-                  activeProfile?.id ? (
+                  hasAccess && activeProfile?.id ? (
                     <ConnectButton
                       fromProfileId={activeProfile.id}
                       toProfileId={org.id}
@@ -123,6 +124,10 @@ function ProviderJobBrowseContent({
                       sentLabel="Applied"
                       fullWidth
                     />
+                  ) : !hasAccess ? (
+                    <p className="text-sm text-warm-600 font-medium">
+                      Upgrade to Pro to view full details and apply.
+                    </p>
                   ) : undefined
                 }
               />

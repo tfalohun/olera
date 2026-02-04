@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
@@ -9,6 +8,7 @@ import type { Profile } from "@/lib/types";
 import UpgradePrompt from "@/components/providers/UpgradePrompt";
 import ConnectButton from "@/components/shared/ConnectButton";
 import EmptyState from "@/components/ui/EmptyState";
+import RoleGate from "@/components/shared/RoleGate";
 import ProfileCard, { profileToCard } from "@/components/shared/ProfileCard";
 
 interface FamilyBrowseViewProps {
@@ -19,13 +19,25 @@ interface FamilyBrowseViewProps {
 export default function FamilyBrowseView({
   layout = "standalone",
 }: FamilyBrowseViewProps) {
-  const { user, activeProfile, membership } = useAuth();
+  return (
+    <RoleGate
+      requiredType={["organization", "caregiver"]}
+      actionLabel="browse families looking for care"
+    >
+      <FamilyBrowseContent layout={layout} />
+    </RoleGate>
+  );
+}
+
+function FamilyBrowseContent({
+  layout,
+}: {
+  layout: "standalone" | "portal";
+}) {
+  const { activeProfile, membership } = useAuth();
   const [families, setFamilies] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const isProvider =
-    activeProfile?.type === "organization" ||
-    activeProfile?.type === "caregiver";
   const hasAccess = canEngage(
     activeProfile?.type,
     membership,
@@ -35,7 +47,7 @@ export default function FamilyBrowseView({
   const profileId = activeProfile?.id;
 
   useEffect(() => {
-    if (!profileId || !isProvider || !isSupabaseConfigured()) {
+    if (!profileId || !isSupabaseConfigured()) {
       setLoading(false);
       return;
     }
@@ -55,34 +67,7 @@ export default function FamilyBrowseView({
     };
 
     fetchFamilies();
-  }, [profileId, isProvider]);
-
-  if (!isProvider) {
-    if (layout === "portal") {
-      return (
-        <EmptyState
-          title="Provider access required"
-          description="Switch to an organization or caregiver profile to browse families."
-        />
-      );
-    }
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Provider access required
-        </h1>
-        <p className="text-lg text-gray-600 mb-6">
-          This page is only available to care providers.
-        </p>
-        <Link
-          href="/browse"
-          className="text-primary-600 hover:text-primary-700 font-medium"
-        >
-          Browse care providers instead
-        </Link>
-      </div>
-    );
-  }
+  }, [profileId]);
 
   if (loading) {
     return (
