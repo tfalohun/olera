@@ -3,14 +3,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+import BrowseFilters from "@/components/browse/BrowseFilters";
+import ProfileCard from "@/components/shared/ProfileCard";
+import { profileToCard } from "@/lib/profile-card";
 
 export const metadata: Metadata = {
   title: "Browse Senior Care Providers | Olera",
   description:
     "Find and compare trusted senior care providers in your area. Browse assisted living, home care, memory care, and more.",
 };
-import BrowseFilters from "@/components/browse/BrowseFilters";
-import ProfileCard, { profileToCard } from "@/components/shared/ProfileCard";
 
 const CARE_TYPE_OPTIONS = [
   "Assisted Living",
