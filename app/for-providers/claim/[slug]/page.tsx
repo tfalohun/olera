@@ -60,7 +60,6 @@ export default function ClaimProfilePage() {
         .update({
           account_id: claimAccount.id,
           claim_state: "claimed",
-          source: "user_created",
         })
         .eq("id", claimProfile.id)
         .eq("claim_state", "unclaimed");

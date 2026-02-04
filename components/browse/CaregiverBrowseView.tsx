@@ -22,7 +22,7 @@ export default function CaregiverBrowseView({
   return (
     <RoleGate
       requiredType="organization"
-      actionLabel="browse caregivers for hiring"
+      actionLabel="browse private caregivers for hiring"
     >
       <CaregiverBrowseContent layout={layout} />
     </RoleGate>
@@ -93,19 +93,19 @@ function CaregiverBrowseContent({
     <>
       {!hasAccess && (
         <div className="mb-8">
-          <UpgradePrompt context="browse caregiver profiles and send invitations" />
+          <UpgradePrompt context="browse private caregiver profiles and send invitations" />
         </div>
       )}
 
       {caregivers.length === 0 ? (
         <EmptyState
-          title="No caregivers found"
-          description="Caregivers who sign up will appear here."
+          title="No private caregivers found"
+          description="Private caregivers who sign up will appear here."
         />
       ) : (
         <>
           <p className="text-base text-gray-500 mb-6">
-            {caregivers.length} caregiver
+            {caregivers.length} private caregiver
             {caregivers.length !== 1 ? "s" : ""} found
           </p>
           <div className={`grid ${gridCols} gap-6`}>
@@ -128,10 +128,10 @@ function CaregiverBrowseContent({
       <div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Browse Caregivers
+            Browse Private Caregivers
           </h1>
           <p className="text-lg text-gray-600 mt-1">
-            Find experienced caregivers to join your team.
+            Find experienced private caregivers to join your team.
           </p>
         </div>
         {content}
@@ -144,10 +144,10 @@ function CaregiverBrowseContent({
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-            Browse Caregivers
+            Browse Private Caregivers
           </h1>
           <p className="mt-2 text-lg text-gray-600">
-            Find experienced caregivers to join your team.
+            Find experienced private caregivers to join your team.
           </p>
         </div>
       </div>

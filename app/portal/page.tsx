@@ -182,14 +182,14 @@ export default function PortalDashboard() {
             show={isProvider}
           />
           <QuickAction
-            title="Browse caregivers"
-            description="Find experienced caregivers to join your team."
+            title="Browse private caregivers"
+            description="Find experienced private caregivers to join your team."
             href="/browse/caregivers"
             show={activeProfile.type === "organization"}
           />
           <QuickAction
             title="Find job opportunities"
-            description="Browse organizations looking for caregivers."
+            description="Browse organizations looking for private caregivers."
             href="/browse/providers"
             show={activeProfile.type === "caregiver"}
           />

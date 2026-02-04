@@ -54,7 +54,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
               {activeProfile.type === "organization"
                 ? "Organization"
                 : activeProfile.type === "caregiver"
-                ? "Caregiver"
+                ? "Private Caregiver"
                 : "Family"}
             </span>
             <span className="text-sm text-gray-400 mx-1">&middot;</span>

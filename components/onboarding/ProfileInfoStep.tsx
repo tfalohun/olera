@@ -69,7 +69,9 @@ export default function ProfileInfoStep({
   };
 
   const isValid =
-    data.displayName.trim().length > 0 && data.zip.trim().length > 0;
+    data.displayName.trim().length > 0 &&
+    (data.city.trim().length > 0 || data.state.trim().length > 0) &&
+    data.careTypes.length > 0;
 
   return (
     <form onSubmit={handleSubmit}>
@@ -78,7 +80,7 @@ export default function ProfileInfoStep({
           ? "Tell us about your care needs"
           : intent === "organization"
           ? "Tell us about your organization"
-          : "Set up your caregiver profile"}
+          : "Set up your private caregiver profile"}
       </h1>
       <p className="text-lg text-gray-600 mb-8">
         {intent === "family"

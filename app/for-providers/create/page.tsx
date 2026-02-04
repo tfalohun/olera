@@ -126,7 +126,7 @@ export default function CreateProfilePage() {
     formData: FormData,
     createAccount: NonNullable<typeof account>
   ) => {
-    if (!formData.kind || !formData.name.trim() || !formData.city.trim() || !formData.state.trim()) return;
+    if (!formData.kind || !formData.name.trim() || !formData.city.trim() || !formData.state.trim() || formData.careTypes.length === 0) return;
     if (!isSupabaseConfigured()) return;
 
     setSubmitting(true);
@@ -299,7 +299,7 @@ export default function CreateProfilePage() {
       </button>
 
       <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-        {kind === "organization" ? "Create Organization Profile" : "Create Caregiver Profile"}
+        {kind === "organization" ? "Create Organization Profile" : "Create Private Caregiver Profile"}
       </h1>
       <p className="text-lg text-gray-600 mb-8">
         Fill in your details to get started. You can always update these later.
