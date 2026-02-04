@@ -1,8 +1,20 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, OrganizationMetadata, CaregiverMetadata } from "@/lib/types";
+import { getProviderBySlug, mockProviderToProfile } from "@/lib/mock-providers";
 import Badge from "@/components/ui/Badge";
 import InquiryButton from "@/components/providers/InquiryButton";
+import ImageGallery from "@/components/providers/ImageGallery";
+
+// Extended metadata type that includes mock-specific fields
+interface ExtendedMetadata extends OrganizationMetadata, CaregiverMetadata {
+  rating?: number;
+  review_count?: number;
+  images?: string[];
+  staff?: { name: string; position: string; bio: string; image: string };
+  badge?: string;
+  accepted_payments?: string[];
+}
 
 export default async function ProviderPage({
   params,
@@ -22,7 +34,15 @@ export default async function ProviderPage({
       .single<Profile>();
     profile = data;
   } catch {
-    // Supabase not configured — fall through to not-found
+    // Supabase not configured — fall through to mock lookup
+  }
+
+  // Mock data fallback for development
+  if (!profile) {
+    const mockProvider = getProviderBySlug(slug);
+    if (mockProvider) {
+      profile = mockProviderToProfile(mockProvider);
+    }
   }
 
   if (!profile) {
@@ -42,7 +62,7 @@ export default async function ProviderPage({
     );
   }
 
-  const meta = profile.metadata as OrganizationMetadata & CaregiverMetadata;
+  const meta = profile.metadata as ExtendedMetadata;
   const amenities = meta?.amenities || [];
   const priceRange =
     meta?.price_range ||
@@ -53,11 +73,21 @@ export default async function ProviderPage({
     .filter(Boolean)
     .join(", ");
 
+  // Mock-enriched fields
+  const rating = meta?.rating;
+  const reviewCount = meta?.review_count;
+  const images = meta?.images || (profile.image_url ? [profile.image_url] : []);
+  const staff = meta?.staff;
+  const badge = meta?.badge;
+  const acceptedPayments = meta?.accepted_payments || [];
+
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Hero Section with Image */}
-      <div className="relative h-64 md:h-80 bg-gray-300">
-        {profile.image_url ? (
+      {/* Hero Section with Image Gallery */}
+      <div className="relative h-72 md:h-96 bg-gray-300">
+        {images.length > 1 ? (
+          <ImageGallery images={images} alt={profile.display_name} />
+        ) : profile.image_url ? (
           <img
             src={profile.image_url}
             alt={profile.display_name}
@@ -66,10 +96,15 @@ export default async function ProviderPage({
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-primary-200 to-primary-400" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-wrap items-center gap-2 mb-3">
+              {badge && (
+                <span className="bg-warm-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                  {badge}
+                </span>
+              )}
               {profile.claim_state === "claimed" &&
                 profile.verification_state === "verified" && (
                   <Badge variant="verified">Verified Provider</Badge>
@@ -88,6 +123,20 @@ export default async function ProviderPage({
             <h1 className="text-3xl md:text-4xl font-bold text-white">
               {profile.display_name}
             </h1>
+            {/* Rating inline with name */}
+            {rating && (
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-1">
+                  <svg className="w-5 h-5 text-warning-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span className="text-white font-semibold">{rating.toFixed(1)}</span>
+                </div>
+                {reviewCount && (
+                  <span className="text-white/70 text-sm">({reviewCount} reviews)</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -160,6 +209,27 @@ export default async function ProviderPage({
               </div>
             )}
 
+            {/* Staff Spotlight */}
+            {staff && (
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Meet Our Team
+                </h2>
+                <div className="flex items-start gap-4">
+                  <img
+                    src={staff.image}
+                    alt={staff.name}
+                    className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                  />
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{staff.name}</h3>
+                    <p className="text-primary-600 text-sm font-medium">{staff.position}</p>
+                    <p className="text-gray-600 text-sm mt-2 leading-relaxed">{staff.bio}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Amenities */}
             {amenities.length > 0 && (
               <div className="bg-white rounded-xl p-6 shadow-sm">
@@ -193,7 +263,7 @@ export default async function ProviderPage({
             )}
 
             {/* Details */}
-            {(meta?.year_founded || meta?.bed_count || meta?.years_experience) && (
+            {(meta?.year_founded || meta?.bed_count || meta?.years_experience || meta?.accepts_medicaid !== undefined || meta?.accepts_medicare !== undefined) && (
               <div className="bg-white rounded-xl p-6 shadow-sm">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   Details
@@ -240,15 +310,47 @@ export default async function ProviderPage({
 
           {/* Right Column - Contact Card */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl p-6 shadow-sm sticky top-24">
-              {priceRange && (
-                <div className="text-center mb-6">
-                  <p className="text-gray-500 text-sm">Estimated Pricing</p>
-                  <p className="text-2xl font-bold text-gray-900">{priceRange}</p>
+            <div className="bg-white rounded-xl p-6 shadow-sm sticky top-24 space-y-6">
+              {/* Price + Rating Summary */}
+              <div className="text-center">
+                {priceRange && (
+                  <div className="mb-2">
+                    <p className="text-gray-500 text-sm">Starting from</p>
+                    <p className="text-2xl font-bold text-gray-900">{priceRange}</p>
+                  </div>
+                )}
+                {rating && (
+                  <div className="flex items-center justify-center gap-1.5">
+                    <svg className="w-5 h-5 text-warning-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <span className="font-semibold text-gray-900">{rating.toFixed(1)}</span>
+                    {reviewCount && (
+                      <span className="text-gray-500 text-sm">({reviewCount} reviews)</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Accepted Payments */}
+              {acceptedPayments.length > 0 && (
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-sm text-gray-500 mb-2">Accepted payments</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {acceptedPayments.map((payment) => (
+                      <span
+                        key={payment}
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+                      >
+                        {payment}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-4">
+              {/* Action Buttons */}
+              <div className="space-y-3">
                 <InquiryButton
                   providerProfileId={profile.id}
                   providerName={profile.display_name}
@@ -281,7 +383,7 @@ export default async function ProviderPage({
               </div>
 
               {meta?.hours && (
-                <div className="mt-6 pt-6 border-t border-gray-100">
+                <div className="border-t border-gray-100 pt-4">
                   <p className="text-sm text-gray-500 text-center">{meta.hours}</p>
                 </div>
               )}
@@ -292,13 +394,13 @@ export default async function ProviderPage({
         {/* Back Link */}
         <div className="mt-8">
           <Link
-            href="/browse"
+            href="/"
             className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to browse
+            Back to home
           </Link>
         </div>
       </div>
