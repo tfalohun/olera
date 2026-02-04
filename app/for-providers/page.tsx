@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+
+export const metadata: Metadata = {
+  title: "For Providers | Olera",
+  description:
+    "Grow your senior care business on Olera. Claim your profile, showcase your services, and connect with families actively searching for care.",
+};
 
 export default function ForProvidersPage() {
   return (

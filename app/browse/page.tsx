@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+
+export const metadata: Metadata = {
+  title: "Browse Senior Care Providers | Olera",
+  description:
+    "Find and compare trusted senior care providers in your area. Browse assisted living, home care, memory care, and more.",
+};
 import BrowseFilters from "@/components/browse/BrowseFilters";
 import ProfileCard, { profileToCard } from "@/components/shared/ProfileCard";
 

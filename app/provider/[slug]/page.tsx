@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, OrganizationMetadata, CaregiverMetadata } from "@/lib/types";
@@ -102,6 +103,42 @@ const factIcons: Record<QuickFact["icon"], (props: { className?: string }) => Re
 // ============================================================
 // Page Component
 // ============================================================
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  let name = "Provider";
+  let description = "View provider details on Olera.";
+
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("display_name, description, city, state, care_types")
+      .eq("slug", slug)
+      .in("type", ["organization", "caregiver"])
+      .single();
+
+    if (data) {
+      name = data.display_name || name;
+      const location = [data.city, data.state].filter(Boolean).join(", ");
+      description = data.description
+        ? data.description.slice(0, 160)
+        : `${name}${location ? ` in ${location}` : ""}. View services, care types, and contact information.`;
+    }
+  } catch {
+    // Supabase not configured — use defaults
+  }
+
+  return {
+    title: `${name} | Olera`,
+    description,
+  };
+}
 
 export default async function ProviderPage({
   params,
