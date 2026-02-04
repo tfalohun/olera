@@ -147,6 +147,9 @@ export default function AuthModal() {
       if (deferred?.returnUrl) {
         clearDeferredAction();
         router.push(deferred.returnUrl);
+      } else if (window.location.pathname === "/onboarding") {
+        // Already on onboarding — refresh in place to preserve URL params (e.g., ?intent=)
+        router.refresh();
       } else {
         router.push("/onboarding");
       }

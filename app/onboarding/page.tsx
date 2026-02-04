@@ -96,6 +96,7 @@ function OnboardingContent() {
   const [data, setData] = useState<OnboardingData>(INITIAL_DATA);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [authPrompted, setAuthPrompted] = useState(false);
 
   // Restore form state: sessionStorage first (mid-flow), then URL params (fresh entry)
   useEffect(() => {
@@ -343,10 +344,8 @@ function OnboardingContent() {
       clearFormStorage();
       await refreshAccountData();
 
-      // Redirect: if adding a second profile, go to portal; otherwise role-based
-      if (isAddingProfile) {
-        router.push("/portal");
-      } else if (data.intent === "family") {
+      // Redirect: families go to browse; everyone else (providers, orgs) goes to portal
+      if (data.intent === "family" && !isAddingProfile) {
         router.push("/browse");
       } else {
         router.push("/portal");
@@ -363,7 +362,15 @@ function OnboardingContent() {
 
   // --- Auth gate ---
   // /onboarding is no longer middleware-protected so it can receive redirects
-  // from /for-providers flows. Show a sign-in prompt for unauthenticated users.
+  // from /for-providers flows. Auto-open the auth modal overlay for
+  // unauthenticated users instead of showing a standalone page.
+  useEffect(() => {
+    if (!isLoading && !user && !authPrompted) {
+      setAuthPrompted(true);
+      openAuthModal(undefined, "sign-up");
+    }
+  }, [isLoading, user, authPrompted, openAuthModal]);
+
   if (!isLoading && !user) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4">

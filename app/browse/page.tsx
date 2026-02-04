@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -102,12 +103,14 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
 
       {/* Filters */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <BrowseFilters
-          careTypes={CARE_TYPE_OPTIONS}
-          currentQuery={searchQuery}
-          currentType={careTypeFilter}
-          currentState={stateFilter}
-        />
+        <Suspense fallback={<div className="h-24" />}>
+          <BrowseFilters
+            careTypes={CARE_TYPE_OPTIONS}
+            currentQuery={searchQuery}
+            currentType={careTypeFilter}
+            currentState={stateFilter}
+          />
+        </Suspense>
       </div>
 
       {/* Results */}
