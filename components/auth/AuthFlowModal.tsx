@@ -830,23 +830,30 @@ export default function AuthFlowModal({
       // Get or create account row
       let accountRow = account;
       if (!accountRow) {
-        // First, check if account already exists
-        const { data: existingAcct } = await supabase
-          .from("accounts")
-          .select("*")
-          .eq("user_id", currentUser.id)
-          .single();
+        // Poll for account (database trigger should create it after auth)
+        for (let i = 0; i < 15; i++) {
+          const { data: existingAcct } = await supabase
+            .from("accounts")
+            .select("*")
+            .eq("user_id", currentUser.id)
+            .single();
 
-        if (existingAcct) {
-          accountRow = existingAcct;
-        } else {
-          // Create account row if it doesn't exist
+          if (existingAcct) {
+            accountRow = existingAcct;
+            break;
+          }
+
+          // Wait before retrying (exponential backoff: 200ms, 400ms, 600ms...)
+          await new Promise((r) => setTimeout(r, 200 + i * 200));
+        }
+
+        // If still no account, try to create one directly
+        if (!accountRow) {
           const displayName = data.displayName || data.orgName || currentUser.email?.split("@")[0] || "";
           const { data: newAcct, error: createErr } = await supabase
             .from("accounts")
             .insert({
               user_id: currentUser.id,
-              email: currentUser.email,
               display_name: displayName,
               onboarding_completed: false,
             })
@@ -854,8 +861,8 @@ export default function AuthFlowModal({
             .single();
 
           if (createErr) {
-            console.error("Failed to create account:", createErr);
-            // Try fetching again in case of race condition (trigger created it)
+            console.error("Failed to create account:", createErr.message, createErr.code, createErr.details);
+            // One more fetch attempt in case of race condition
             const { data: retryAcct } = await supabase
               .from("accounts")
               .select("*")
@@ -869,7 +876,7 @@ export default function AuthFlowModal({
       }
 
       if (!accountRow) {
-        setError("Failed to create account. Please try again.");
+        setError("Account setup failed. Please refresh and try again.");
         setLoading(false);
         return;
       }
