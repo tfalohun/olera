@@ -20,21 +20,29 @@ export type UserIntent = "family" | "provider";
 /** Provider subtype */
 export type ProviderType = "organization" | "caregiver";
 
-/** All possible steps in the auth flow */
+/**
+ * Flow steps in order (onboarding first, then auth):
+ *
+ * Provider path:
+ *   intent? → provider-type → provider-info → org-search? → visibility → auth → verify-code? → complete
+ *
+ * Family path:
+ *   intent? → family-info → family-needs → auth → verify-code? → complete
+ *
+ * If user is already authenticated, auth/verify-code steps are skipped.
+ */
 export type AuthFlowStep =
-  // Auth steps
-  | "auth"           // Email, password, name entry
-  | "verify-code"    // OTP verification
-  // Intent step (skipped if intent is known)
-  | "intent"         // Family vs Provider selection
-  // Provider path
+  // Onboarding steps (FIRST)
+  | "intent"         // Family vs Provider selection (skipped if intent preset)
   | "provider-type"  // Organization vs Caregiver
   | "provider-info"  // Name, location, care types
-  | "org-search"     // Search/claim existing organization
+  | "org-search"     // Search/claim existing organization (org only)
   | "visibility"     // Who can see the profile
-  // Family path (future)
   | "family-info"    // Care recipient details
-  | "family-needs";  // Care needs and preferences
+  | "family-needs"   // Care needs and preferences
+  // Auth steps (LAST - skipped if already authenticated)
+  | "auth"           // Email, password entry
+  | "verify-code";   // OTP verification
 
 /** Props for AuthFlowModal */
 export interface AuthFlowModalProps {
@@ -73,7 +81,7 @@ interface FlowData {
   // Claim data
   claimedProfileId: string | null;
   claimedProfile: Profile | null;
-  // Family data (future)
+  // Family data
   careRecipientName: string;
   careRecipientRelation: string;
   careNeeds: string[];
@@ -132,44 +140,75 @@ const CARE_TYPES = [
   "Rehabilitation",
 ];
 
+const STORAGE_KEY = "olera_onboarding_progress";
+
 // ============================================================
 // Step Configuration
 // ============================================================
 
 interface StepConfig {
   title: string;
-  /** Step number for progress indicator (null = don't show progress) */
-  stepNumber: number | null;
+  stepNumber: number;
+  totalSteps: number;
 }
 
-function getStepConfig(step: AuthFlowStep, data: FlowData): StepConfig {
-  const configs: Record<AuthFlowStep, StepConfig> = {
-    "auth": { title: "Create your account", stepNumber: null },
-    "verify-code": { title: "Verify your email", stepNumber: null },
-    "intent": { title: "Welcome to Olera", stepNumber: 1 },
-    "provider-type": { title: "Tell us about yourself", stepNumber: 2 },
-    "provider-info": {
-      title: data.providerType === "organization"
-        ? "About your organization"
-        : "About you",
-      stepNumber: 3,
-    },
-    "org-search": { title: "Is your organization listed?", stepNumber: 4 },
-    "visibility": { title: "Who can find you?", stepNumber: data.providerType === "organization" ? 5 : 4 },
-    "family-info": { title: "Who needs care?", stepNumber: 2 },
-    "family-needs": { title: "Care preferences", stepNumber: 3 },
+function getStepConfig(step: AuthFlowStep, data: FlowData, isAuthenticated: boolean): StepConfig {
+  // Calculate total steps based on path
+  const isProvider = data.intent === "provider";
+  const isOrg = data.providerType === "organization";
+
+  // Provider path: type(1) → info(2) → search?(3) → visibility(3/4) → auth(4/5) → verify?(5/6)
+  // Family path: info(1) → needs(2) → auth(3) → verify?(4)
+
+  let totalSteps: number;
+  let stepNumber: number;
+
+  if (isProvider) {
+    // Provider steps: type, info, search(org only), visibility, auth(if needed)
+    totalSteps = isOrg ? 5 : 4;
+    if (!isAuthenticated) totalSteps += 1; // Add auth step
+
+    const stepMap: Record<string, number> = {
+      "intent": 0, // Not counted if skipped
+      "provider-type": 1,
+      "provider-info": 2,
+      "org-search": 3,
+      "visibility": isOrg ? 4 : 3,
+      "auth": isOrg ? 5 : 4,
+      "verify-code": isOrg ? 5 : 4, // Same as auth
+    };
+    stepNumber = stepMap[step] || 1;
+  } else {
+    // Family steps: info, needs, auth(if needed)
+    totalSteps = isAuthenticated ? 2 : 3;
+
+    const stepMap: Record<string, number> = {
+      "intent": 0,
+      "family-info": 1,
+      "family-needs": 2,
+      "auth": 3,
+      "verify-code": 3,
+    };
+    stepNumber = stepMap[step] || 1;
+  }
+
+  const titles: Record<AuthFlowStep, string> = {
+    "intent": "Welcome to Olera",
+    "provider-type": "Tell us about yourself",
+    "provider-info": data.providerType === "organization" ? "About your organization" : "About you",
+    "org-search": "Is your organization listed?",
+    "visibility": "Who can find you?",
+    "family-info": "Who needs care?",
+    "family-needs": "Care preferences",
+    "auth": "Create your account",
+    "verify-code": "Verify your email",
   };
-  return configs[step];
-}
 
-function getTotalSteps(data: FlowData): number {
-  if (data.intent === "provider") {
-    return data.providerType === "organization" ? 5 : 4;
-  }
-  if (data.intent === "family") {
-    return 3;
-  }
-  return 1; // Just intent selection
+  return {
+    title: titles[step],
+    stepNumber,
+    totalSteps,
+  };
 }
 
 // ============================================================
@@ -187,14 +226,49 @@ export default function AuthFlowModal({
   const router = useRouter();
   const { user, account, refreshAccountData } = useAuth();
 
+  // Determine starting step based on context
+  const getInitialStep = useCallback((): AuthFlowStep => {
+    // Claim flow: skip directly to visibility since we have the profile
+    if (claimProfile) {
+      return "visibility";
+    }
+    if (initialIntent === "provider") {
+      return initialProviderType ? "provider-info" : "provider-type";
+    }
+    if (initialIntent === "family") {
+      return "family-info";
+    }
+    return "intent";
+  }, [initialIntent, initialProviderType, claimProfile]);
+
   // Core state
-  const [step, setStep] = useState<AuthFlowStep>("auth");
-  const [data, setData] = useState<FlowData>({
-    ...INITIAL_DATA,
-    intent: initialIntent,
-    providerType: initialProviderType,
-    claimedProfileId: claimProfile?.id ?? null,
-    claimedProfile: claimProfile ?? null,
+  const [step, setStep] = useState<AuthFlowStep>(getInitialStep());
+  const [data, setData] = useState<FlowData>(() => {
+    // Pre-populate data from claim profile if provided
+    if (claimProfile) {
+      return {
+        ...INITIAL_DATA,
+        intent: "provider" as const,
+        providerType: "organization" as const,
+        orgName: claimProfile.display_name || "",
+        city: claimProfile.city || "",
+        state: claimProfile.state || "",
+        zip: claimProfile.zip || "",
+        careTypes: claimProfile.care_types || [],
+        category: claimProfile.category,
+        description: claimProfile.description || "",
+        phone: claimProfile.phone || "",
+        claimedProfileId: claimProfile.id,
+        claimedProfile: claimProfile,
+      };
+    }
+    return {
+      ...INITIAL_DATA,
+      intent: initialIntent,
+      providerType: initialProviderType,
+      claimedProfileId: null,
+      claimedProfile: null,
+    };
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -214,20 +288,102 @@ export default function AuthFlowModal({
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
   // ──────────────────────────────────────────────────────────
+  // localStorage Persistence
+  // ──────────────────────────────────────────────────────────
+
+  // Save progress to localStorage when data changes
+  useEffect(() => {
+    if (isOpen && step !== "auth" && step !== "verify-code") {
+      try {
+        const toSave = {
+          step,
+          data: {
+            intent: data.intent,
+            providerType: data.providerType,
+            orgName: data.orgName,
+            displayName: data.displayName,
+            city: data.city,
+            state: data.state,
+            zip: data.zip,
+            careTypes: data.careTypes,
+            category: data.category,
+            description: data.description,
+            phone: data.phone,
+            visibleToFamilies: data.visibleToFamilies,
+            visibleToProviders: data.visibleToProviders,
+            careRecipientName: data.careRecipientName,
+            careRecipientRelation: data.careRecipientRelation,
+            careNeeds: data.careNeeds,
+            // Don't save sensitive auth data or claim data
+          },
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+      } catch {
+        // localStorage unavailable
+      }
+    }
+  }, [isOpen, step, data]);
+
+  // Restore progress from localStorage on open (but not for claim flows)
+  useEffect(() => {
+    // Don't restore saved progress for claim flows - they have specific profile data
+    if (isOpen && !claimProfile) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // Only restore if less than 30 minutes old
+          if (Date.now() - parsed.timestamp < 30 * 60 * 1000) {
+            // Only restore if intent matches (or no intent was preset)
+            if (!initialIntent || parsed.data.intent === initialIntent) {
+              setData((prev) => ({ ...prev, ...parsed.data }));
+              // Don't restore step - let user start fresh but with their data
+            }
+          } else {
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        }
+      } catch {
+        // Invalid data, ignore
+      }
+    }
+  }, [isOpen, initialIntent, claimProfile]);
+
+  // ──────────────────────────────────────────────────────────
   // Reset and Initialization
   // ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!isOpen) {
-      // Reset all state when modal closes
-      setStep("auth");
-      setData({
-        ...INITIAL_DATA,
-        intent: initialIntent,
-        providerType: initialProviderType,
-        claimedProfileId: claimProfile?.id ?? null,
-        claimedProfile: claimProfile ?? null,
-      });
+      // Reset state when modal closes (but keep localStorage for resume)
+      setStep(getInitialStep());
+      // Reset data, pre-populating from claim profile if provided
+      if (claimProfile) {
+        setData({
+          ...INITIAL_DATA,
+          intent: "provider" as const,
+          providerType: "organization" as const,
+          orgName: claimProfile.display_name || "",
+          city: claimProfile.city || "",
+          state: claimProfile.state || "",
+          zip: claimProfile.zip || "",
+          careTypes: claimProfile.care_types || [],
+          category: claimProfile.category,
+          description: claimProfile.description || "",
+          phone: claimProfile.phone || "",
+          claimedProfileId: claimProfile.id,
+          claimedProfile: claimProfile,
+        });
+      } else {
+        setData({
+          ...INITIAL_DATA,
+          intent: initialIntent,
+          providerType: initialProviderType,
+          claimedProfileId: null,
+          claimedProfile: null,
+        });
+      }
       setError("");
       setLoading(false);
       setAuthMode(defaultToSignIn ? "sign-in" : "sign-up");
@@ -239,29 +395,7 @@ export default function AuthFlowModal({
       setHasSearched(false);
       setSelectedOrgId(null);
     }
-  }, [isOpen, initialIntent, initialProviderType, claimProfile, defaultToSignIn]);
-
-  // If user is already authenticated, skip to appropriate step
-  useEffect(() => {
-    if (isOpen && user && step === "auth") {
-      // User already signed in - skip auth steps
-      if (initialIntent) {
-        // Intent is known - go to appropriate path
-        if (initialIntent === "provider") {
-          if (initialProviderType) {
-            setStep("provider-info");
-          } else {
-            setStep("provider-type");
-          }
-        } else {
-          setStep("family-info");
-        }
-      } else {
-        // Intent unknown - ask
-        setStep("intent");
-      }
-    }
-  }, [isOpen, user, step, initialIntent, initialProviderType]);
+  }, [isOpen, initialIntent, initialProviderType, claimProfile, defaultToSignIn, getInitialStep]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -287,13 +421,6 @@ export default function AuthFlowModal({
     setError("");
 
     switch (step) {
-      case "verify-code":
-        setStep("auth");
-        setOtpCode("");
-        break;
-      case "intent":
-        // Can't go back from intent (would go to auth which user completed)
-        break;
       case "provider-type":
         if (initialIntent === null) {
           setStep("intent");
@@ -301,10 +428,7 @@ export default function AuthFlowModal({
         break;
       case "provider-info":
         if (initialProviderType) {
-          // Provider type was preset, can't go back to it
-          if (initialIntent === null) {
-            setStep("intent");
-          }
+          // Can't go back if provider type was preset
         } else {
           setStep("provider-type");
         }
@@ -313,7 +437,10 @@ export default function AuthFlowModal({
         setStep("provider-info");
         break;
       case "visibility":
-        if (data.providerType === "organization") {
+        // Can't go back if this is a claim flow (started with claimProfile)
+        if (claimProfile) {
+          // Nowhere to go back to - claim flow starts at visibility
+        } else if (data.providerType === "organization") {
           setStep("org-search");
         } else {
           setStep("provider-info");
@@ -327,222 +454,29 @@ export default function AuthFlowModal({
       case "family-needs":
         setStep("family-info");
         break;
+      case "auth":
+        if (data.intent === "provider") {
+          setStep("visibility");
+        } else {
+          setStep("family-needs");
+        }
+        break;
+      case "verify-code":
+        setStep("auth");
+        setOtpCode("");
+        break;
     }
   };
 
   const canGoBack = (): boolean => {
-    // Auth steps: can't go back
-    if (step === "auth") return false;
-    if (step === "verify-code") return true;
-    // Intent: can't go back (user already authenticated)
+    // First step of the flow (based on context) can't go back
     if (step === "intent") return false;
-    // First onboarding step after auth: depends on whether intent was preset
-    if (step === "provider-type" && initialIntent !== null) return false;
-    if (step === "family-info" && initialIntent !== null) return false;
-    // All other steps: can go back
+    if (step === "provider-type" && initialIntent === "provider") return false;
+    if (step === "provider-info" && initialProviderType) return false;
+    if (step === "family-info" && initialIntent === "family") return false;
+    // Claim flow starts at visibility - can't go back
+    if (step === "visibility" && claimProfile) return false;
     return true;
-  };
-
-  // ──────────────────────────────────────────────────────────
-  // Auth Handlers
-  // ──────────────────────────────────────────────────────────
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (data.password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      if (!isSupabaseConfigured()) {
-        setError("Authentication is not configured.");
-        setLoading(false);
-        return;
-      }
-
-      const supabase = createClient();
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: { display_name: data.displayName || undefined },
-        },
-      });
-
-      if (authError) {
-        if (authError.message.includes("already registered")) {
-          setError("This email is already registered. Try signing in instead.");
-        } else {
-          setError(authError.message);
-        }
-        setLoading(false);
-        return;
-      }
-
-      // Check if email confirmation is required
-      if (!authData.session) {
-        if (authData.user?.identities?.length === 0) {
-          setError("This email is already registered. Try signing in instead.");
-          setLoading(false);
-          return;
-        }
-
-        // Email confirmation required - show OTP screen
-        setResendCooldown(30);
-        setLoading(false);
-        setStep("verify-code");
-        return;
-      }
-
-      // No email confirmation - proceed to next step
-      setLoading(false);
-      proceedAfterAuth();
-    } catch (err) {
-      console.error("Sign up error:", err);
-      setError("Something went wrong. Please try again.");
-      setLoading(false);
-    }
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      if (!isSupabaseConfigured()) {
-        setError("Authentication is not configured.");
-        setLoading(false);
-        return;
-      }
-
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (authError) {
-        setError(
-          authError.message === "Invalid login credentials"
-            ? "Wrong email or password. Please try again."
-            : authError.message
-        );
-        setLoading(false);
-        return;
-      }
-
-      setLoading(false);
-      proceedAfterAuth();
-    } catch (err) {
-      console.error("Sign in error:", err);
-      setError("Something went wrong. Please try again.");
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (otpCode.length !== 6) {
-      setError("Please enter the 6-digit code.");
-      return;
-    }
-
-    setError("");
-    setLoading(true);
-
-    try {
-      if (!isSupabaseConfigured()) {
-        setError("Authentication is not configured.");
-        setLoading(false);
-        return;
-      }
-
-      const supabase = createClient();
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: data.email,
-        token: otpCode,
-        type: "signup",
-      });
-
-      if (verifyError) {
-        if (verifyError.message.includes("expired")) {
-          setError("This code has expired. Please request a new one.");
-        } else if (verifyError.message.includes("invalid")) {
-          setError("Invalid code. Please check and try again.");
-        } else {
-          setError(verifyError.message);
-        }
-        setLoading(false);
-        return;
-      }
-
-      setLoading(false);
-      proceedAfterAuth();
-    } catch (err) {
-      console.error("OTP verification error:", err);
-      setError("Something went wrong. Please try again.");
-      setLoading(false);
-    }
-  };
-
-  const handleResendCode = async () => {
-    if (resendCooldown > 0) return;
-
-    setError("");
-    setLoading(true);
-
-    try {
-      if (!isSupabaseConfigured()) {
-        setError("Authentication is not configured.");
-        setLoading(false);
-        return;
-      }
-
-      const supabase = createClient();
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email: data.email,
-      });
-
-      if (resendError) {
-        setError(resendError.message);
-        setLoading(false);
-        return;
-      }
-
-      setResendCooldown(60);
-      setOtpCode("");
-      setLoading(false);
-    } catch (err) {
-      console.error("Resend code error:", err);
-      setError("Failed to resend code. Please try again.");
-      setLoading(false);
-    }
-  };
-
-  /** Determine next step after authentication completes */
-  const proceedAfterAuth = () => {
-    if (initialIntent) {
-      // Intent is known
-      if (initialIntent === "provider") {
-        if (initialProviderType) {
-          setStep("provider-info");
-        } else {
-          setStep("provider-type");
-        }
-      } else {
-        setStep("family-info");
-      }
-    } else {
-      // Intent unknown - ask user
-      setStep("intent");
-    }
   };
 
   // ──────────────────────────────────────────────────────────
@@ -634,7 +568,226 @@ export default function AuthFlowModal({
   };
 
   // ──────────────────────────────────────────────────────────
-  // Final Submission
+  // Visibility → Auth or Complete
+  // ──────────────────────────────────────────────────────────
+
+  const handleVisibilityNext = () => {
+    if (user) {
+      // Already authenticated - skip to profile creation
+      handleComplete();
+    } else {
+      // Need to authenticate first
+      setStep("auth");
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Family Path Handlers
+  // ──────────────────────────────────────────────────────────
+
+  const handleFamilyInfoNext = () => {
+    setStep("family-needs");
+  };
+
+  const handleFamilyNeedsNext = () => {
+    if (user) {
+      // Already authenticated - skip to profile creation
+      handleComplete();
+    } else {
+      // Need to authenticate first
+      setStep("auth");
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Auth Handlers
+  // ──────────────────────────────────────────────────────────
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (data.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (!isSupabaseConfigured()) {
+        setError("Authentication is not configured.");
+        setLoading(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const displayNameForAuth = data.displayName || data.orgName || "";
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: { display_name: displayNameForAuth || undefined },
+        },
+      });
+
+      if (authError) {
+        if (authError.message.includes("already registered")) {
+          setError("This email is already registered. Try signing in instead.");
+        } else {
+          setError(authError.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Check if email confirmation is required
+      if (!authData.session) {
+        if (authData.user?.identities?.length === 0) {
+          setError("This email is already registered. Try signing in instead.");
+          setLoading(false);
+          return;
+        }
+
+        // Email confirmation required - show OTP screen
+        setResendCooldown(30);
+        setLoading(false);
+        setStep("verify-code");
+        return;
+      }
+
+      // No email confirmation needed - proceed to profile creation
+      setLoading(false);
+      await handleComplete();
+    } catch (err) {
+      console.error("Sign up error:", err);
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      if (!isSupabaseConfigured()) {
+        setError("Authentication is not configured.");
+        setLoading(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (authError) {
+        setError(
+          authError.message === "Invalid login credentials"
+            ? "Wrong email or password. Please try again."
+            : authError.message
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Signed in - proceed to profile creation
+      setLoading(false);
+      await handleComplete();
+    } catch (err) {
+      console.error("Sign in error:", err);
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (otpCode.length !== 6) {
+      setError("Please enter the 6-digit code.");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      if (!isSupabaseConfigured()) {
+        setError("Authentication is not configured.");
+        setLoading(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: data.email,
+        token: otpCode,
+        type: "signup",
+      });
+
+      if (verifyError) {
+        if (verifyError.message.includes("expired")) {
+          setError("This code has expired. Please request a new one.");
+        } else if (verifyError.message.includes("invalid")) {
+          setError("Invalid code. Please check and try again.");
+        } else {
+          setError(verifyError.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Verified - proceed to profile creation
+      setLoading(false);
+      await handleComplete();
+    } catch (err) {
+      console.error("OTP verification error:", err);
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return;
+
+    setError("");
+    setLoading(true);
+
+    try {
+      if (!isSupabaseConfigured()) {
+        setError("Authentication is not configured.");
+        setLoading(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: data.email,
+      });
+
+      if (resendError) {
+        setError(resendError.message);
+        setLoading(false);
+        return;
+      }
+
+      setResendCooldown(60);
+      setOtpCode("");
+      setLoading(false);
+    } catch (err) {
+      console.error("Resend code error:", err);
+      setError("Failed to resend code. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Profile Creation (Final Step)
   // ──────────────────────────────────────────────────────────
 
   const handleComplete = async () => {
@@ -691,12 +844,13 @@ export default function AuthFlowModal({
       }
 
       // Update account
+      const displayName = data.displayName || data.orgName;
       const { error: accountErr } = await supabase
         .from("accounts")
         .update({
           onboarding_completed: true,
           active_profile_id: profileId,
-          display_name: accountRow.display_name || data.displayName || data.orgName,
+          display_name: accountRow.display_name || displayName,
         })
         .eq("id", accountRow.id);
       if (accountErr) throw accountErr;
@@ -706,6 +860,13 @@ export default function AuthFlowModal({
         { account_id: accountRow.id, plan: "free", status: "free" },
         { onConflict: "account_id" }
       );
+
+      // Clear saved progress
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // Ignore
+      }
 
       // Refresh auth state and redirect
       await refreshAccountData();
@@ -826,9 +987,8 @@ export default function AuthFlowModal({
   // Render Helpers
   // ──────────────────────────────────────────────────────────
 
-  const stepConfig = getStepConfig(step, data);
-  const totalSteps = getTotalSteps(data);
-  const showProgress = stepConfig.stepNumber !== null && data.intent !== null;
+  const stepConfig = getStepConfig(step, data, !!user);
+  const showProgress = step !== "intent" && data.intent !== null;
 
   // ──────────────────────────────────────────────────────────
   // Render
@@ -841,12 +1001,12 @@ export default function AuthFlowModal({
       title={stepConfig.title}
       size={step === "auth" || step === "verify-code" ? "sm" : "lg"}
     >
-      {/* Progress bar (only for onboarding steps) */}
+      {/* Progress bar (for onboarding steps) */}
       {showProgress && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-sm text-gray-500">
-              Step {stepConfig.stepNumber} of {totalSteps}
+              Step {stepConfig.stepNumber} of {stepConfig.totalSteps}
             </span>
             {canGoBack() && (
               <button
@@ -861,7 +1021,7 @@ export default function AuthFlowModal({
           <div className="w-full bg-gray-200 rounded-full h-1.5">
             <div
               className="bg-primary-600 h-1.5 rounded-full transition-all duration-300"
-              style={{ width: `${((stepConfig.stepNumber ?? 1) / totalSteps) * 100}%` }}
+              style={{ width: `${(stepConfig.stepNumber / stepConfig.totalSteps) * 100}%` }}
             />
           </div>
         </div>
@@ -871,37 +1031,6 @@ export default function AuthFlowModal({
         <div className="mb-4 bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert">
           {error}
         </div>
-      )}
-
-      {/* Step: Auth */}
-      {step === "auth" && (
-        <AuthStep
-          mode={authMode}
-          setMode={setAuthMode}
-          data={data}
-          updateData={updateData}
-          loading={loading}
-          onSignUp={handleSignUp}
-          onSignIn={handleSignIn}
-        />
-      )}
-
-      {/* Step: Verify Code */}
-      {step === "verify-code" && (
-        <VerifyCodeStep
-          email={data.email}
-          otpCode={otpCode}
-          setOtpCode={setOtpCode}
-          loading={loading}
-          resendCooldown={resendCooldown}
-          onVerify={handleVerifyOtp}
-          onResend={handleResendCode}
-          onBack={() => {
-            setStep("auth");
-            setOtpCode("");
-            setError("");
-          }}
-        />
       )}
 
       {/* Step: Intent Selection */}
@@ -951,27 +1080,61 @@ export default function AuthFlowModal({
           data={data}
           updateData={updateData}
           loading={loading}
-          onComplete={handleComplete}
+          onNext={handleVisibilityNext}
+          isAuthenticated={!!user}
         />
       )}
 
-      {/* Step: Family Info (future - basic placeholder) */}
+      {/* Step: Family Info */}
       {step === "family-info" && (
         <FamilyInfoStep
           data={data}
           updateData={updateData}
-          onNext={() => setStep("family-needs")}
+          onNext={handleFamilyInfoNext}
         />
       )}
 
-      {/* Step: Family Needs (future - basic placeholder) */}
+      {/* Step: Family Needs */}
       {step === "family-needs" && (
         <FamilyNeedsStep
           data={data}
           updateData={updateData}
           loading={loading}
           careTypes={CARE_TYPES}
-          onComplete={handleComplete}
+          onNext={handleFamilyNeedsNext}
+          isAuthenticated={!!user}
+        />
+      )}
+
+      {/* Step: Auth */}
+      {step === "auth" && (
+        <AuthStep
+          mode={authMode}
+          setMode={setAuthMode}
+          data={data}
+          updateData={updateData}
+          loading={loading}
+          onSignUp={handleSignUp}
+          onSignIn={handleSignIn}
+          onBack={goBack}
+        />
+      )}
+
+      {/* Step: Verify Code */}
+      {step === "verify-code" && (
+        <VerifyCodeStep
+          email={data.email}
+          otpCode={otpCode}
+          setOtpCode={setOtpCode}
+          loading={loading}
+          resendCooldown={resendCooldown}
+          onVerify={handleVerifyOtp}
+          onResend={handleResendCode}
+          onBack={() => {
+            setStep("auth");
+            setOtpCode("");
+            setError("");
+          }}
         />
       )}
     </Modal>
@@ -981,165 +1144,6 @@ export default function AuthFlowModal({
 // ============================================================
 // Step Components
 // ============================================================
-
-function AuthStep({
-  mode,
-  setMode,
-  data,
-  updateData,
-  loading,
-  onSignUp,
-  onSignIn,
-}: {
-  mode: "sign-up" | "sign-in";
-  setMode: (mode: "sign-up" | "sign-in") => void;
-  data: FlowData;
-  updateData: (partial: Partial<FlowData>) => void;
-  loading: boolean;
-  onSignUp: (e: React.FormEvent) => void;
-  onSignIn: (e: React.FormEvent) => void;
-}) {
-  return (
-    <form onSubmit={mode === "sign-up" ? onSignUp : onSignIn} className="space-y-4">
-      {mode === "sign-up" && (
-        <Input
-          label="Your name"
-          type="text"
-          name="displayName"
-          value={data.displayName}
-          onChange={(e) => updateData({ displayName: (e.target as HTMLInputElement).value })}
-          placeholder="First and last name"
-          autoComplete="name"
-        />
-      )}
-
-      <Input
-        label="Email"
-        type="email"
-        name="email"
-        value={data.email}
-        onChange={(e) => updateData({ email: (e.target as HTMLInputElement).value })}
-        placeholder="you@example.com"
-        required
-        autoComplete="email"
-      />
-
-      <Input
-        label="Password"
-        type="password"
-        name="password"
-        value={data.password}
-        onChange={(e) => updateData({ password: (e.target as HTMLInputElement).value })}
-        placeholder={mode === "sign-up" ? "At least 8 characters" : "Your password"}
-        required
-        autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-        helpText={mode === "sign-up" ? "Must be at least 8 characters" : undefined}
-      />
-
-      <Button type="submit" loading={loading} fullWidth size="md">
-        {mode === "sign-up" ? "Create account" : "Sign in"}
-      </Button>
-
-      <p className="text-center text-base text-gray-500 pt-2">
-        {mode === "sign-up" ? (
-          <>
-            Already have an account?{" "}
-            <button
-              type="button"
-              onClick={() => setMode("sign-in")}
-              className="text-primary-600 hover:text-primary-700 font-medium focus:outline-none focus:underline"
-            >
-              Sign in
-            </button>
-          </>
-        ) : (
-          <>
-            New to Olera?{" "}
-            <button
-              type="button"
-              onClick={() => setMode("sign-up")}
-              className="text-primary-600 hover:text-primary-700 font-medium focus:outline-none focus:underline"
-            >
-              Create an account
-            </button>
-          </>
-        )}
-      </p>
-    </form>
-  );
-}
-
-function VerifyCodeStep({
-  email,
-  otpCode,
-  setOtpCode,
-  loading,
-  resendCooldown,
-  onVerify,
-  onResend,
-  onBack,
-}: {
-  email: string;
-  otpCode: string;
-  setOtpCode: (code: string) => void;
-  loading: boolean;
-  resendCooldown: number;
-  onVerify: (e?: React.FormEvent) => void;
-  onResend: () => void;
-  onBack: () => void;
-}) {
-  return (
-    <div className="py-2">
-      <div className="text-center mb-6">
-        <div className="mb-4">
-          <svg className="w-14 h-14 text-primary-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        </div>
-        <p className="text-base text-gray-600">We sent a verification code to</p>
-        <p className="font-semibold text-gray-900 mt-1">{email}</p>
-      </div>
-
-      <form onSubmit={onVerify} className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 text-center mb-3">
-            Enter 6-digit code
-          </label>
-          <OtpInput value={otpCode} onChange={setOtpCode} disabled={loading} />
-        </div>
-
-        <Button type="submit" loading={loading} fullWidth size="md" disabled={otpCode.length !== 6}>
-          Verify code
-        </Button>
-
-        <div className="text-center space-y-3">
-          <p className="text-sm text-gray-500">Didn&apos;t receive the code?</p>
-          {resendCooldown > 0 ? (
-            <p className="text-sm text-gray-400">Resend available in {resendCooldown}s</p>
-          ) : (
-            <button
-              type="button"
-              onClick={onResend}
-              disabled={loading}
-              className="text-primary-600 hover:text-primary-700 font-medium text-sm focus:outline-none focus:underline disabled:opacity-50"
-            >
-              Resend code
-            </button>
-          )}
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={onBack}
-              className="text-gray-500 hover:text-gray-700 text-sm focus:outline-none focus:underline"
-            >
-              Use a different email
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
-}
 
 function IntentStep({ onSelect }: { onSelect: (intent: UserIntent) => void }) {
   return (
@@ -1437,12 +1441,14 @@ function VisibilityStep({
   data,
   updateData,
   loading,
-  onComplete,
+  onNext,
+  isAuthenticated,
 }: {
   data: FlowData;
   updateData: (partial: Partial<FlowData>) => void;
   loading: boolean;
-  onComplete: () => void;
+  onNext: () => void;
+  isAuthenticated: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -1484,8 +1490,8 @@ function VisibilityStep({
         </div>
       </label>
 
-      <Button type="button" onClick={onComplete} loading={loading} fullWidth size="lg">
-        Complete setup
+      <Button type="button" onClick={onNext} loading={loading} fullWidth size="lg">
+        {isAuthenticated ? "Complete setup" : "Continue"}
       </Button>
     </div>
   );
@@ -1562,13 +1568,15 @@ function FamilyNeedsStep({
   updateData,
   loading,
   careTypes,
-  onComplete,
+  onNext,
+  isAuthenticated,
 }: {
   data: FlowData;
   updateData: (partial: Partial<FlowData>) => void;
   loading: boolean;
   careTypes: string[];
-  onComplete: () => void;
+  onNext: () => void;
+  isAuthenticated: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -1600,9 +1608,178 @@ function FamilyNeedsStep({
         ))}
       </div>
 
-      <Button type="button" onClick={onComplete} loading={loading} fullWidth size="lg">
-        Complete setup
+      <Button type="button" onClick={onNext} loading={loading} fullWidth size="lg">
+        {isAuthenticated ? "Complete setup" : "Continue"}
       </Button>
+    </div>
+  );
+}
+
+function AuthStep({
+  mode,
+  setMode,
+  data,
+  updateData,
+  loading,
+  onSignUp,
+  onSignIn,
+  onBack,
+}: {
+  mode: "sign-up" | "sign-in";
+  setMode: (mode: "sign-up" | "sign-in") => void;
+  data: FlowData;
+  updateData: (partial: Partial<FlowData>) => void;
+  loading: boolean;
+  onSignUp: (e: React.FormEvent) => void;
+  onSignIn: (e: React.FormEvent) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div>
+      {/* Back button for auth step */}
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back
+      </button>
+
+      <p className="text-sm text-gray-600 mb-4">
+        {mode === "sign-up"
+          ? "Create an account to save your profile and start connecting."
+          : "Sign in to your existing account."}
+      </p>
+
+      <form onSubmit={mode === "sign-up" ? onSignUp : onSignIn} className="space-y-4">
+        <Input
+          label="Email"
+          type="email"
+          name="email"
+          value={data.email}
+          onChange={(e) => updateData({ email: (e.target as HTMLInputElement).value })}
+          placeholder="you@example.com"
+          required
+          autoComplete="email"
+        />
+
+        <Input
+          label="Password"
+          type="password"
+          name="password"
+          value={data.password}
+          onChange={(e) => updateData({ password: (e.target as HTMLInputElement).value })}
+          placeholder={mode === "sign-up" ? "At least 8 characters" : "Your password"}
+          required
+          autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+          helpText={mode === "sign-up" ? "Must be at least 8 characters" : undefined}
+        />
+
+        <Button type="submit" loading={loading} fullWidth size="md">
+          {mode === "sign-up" ? "Create account & finish" : "Sign in & finish"}
+        </Button>
+
+        <p className="text-center text-base text-gray-500 pt-2">
+          {mode === "sign-up" ? (
+            <>
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={() => setMode("sign-in")}
+                className="text-primary-600 hover:text-primary-700 font-medium focus:outline-none focus:underline"
+              >
+                Sign in
+              </button>
+            </>
+          ) : (
+            <>
+              New to Olera?{" "}
+              <button
+                type="button"
+                onClick={() => setMode("sign-up")}
+                className="text-primary-600 hover:text-primary-700 font-medium focus:outline-none focus:underline"
+              >
+                Create an account
+              </button>
+            </>
+          )}
+        </p>
+      </form>
+    </div>
+  );
+}
+
+function VerifyCodeStep({
+  email,
+  otpCode,
+  setOtpCode,
+  loading,
+  resendCooldown,
+  onVerify,
+  onResend,
+  onBack,
+}: {
+  email: string;
+  otpCode: string;
+  setOtpCode: (code: string) => void;
+  loading: boolean;
+  resendCooldown: number;
+  onVerify: (e?: React.FormEvent) => void;
+  onResend: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="py-2">
+      <div className="text-center mb-6">
+        <div className="mb-4">
+          <svg className="w-14 h-14 text-primary-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <p className="text-base text-gray-600">We sent a verification code to</p>
+        <p className="font-semibold text-gray-900 mt-1">{email}</p>
+      </div>
+
+      <form onSubmit={onVerify} className="space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 text-center mb-3">
+            Enter 6-digit code
+          </label>
+          <OtpInput value={otpCode} onChange={setOtpCode} disabled={loading} />
+        </div>
+
+        <Button type="submit" loading={loading} fullWidth size="md" disabled={otpCode.length !== 6}>
+          Verify & complete setup
+        </Button>
+
+        <div className="text-center space-y-3">
+          <p className="text-sm text-gray-500">Didn&apos;t receive the code?</p>
+          {resendCooldown > 0 ? (
+            <p className="text-sm text-gray-400">Resend available in {resendCooldown}s</p>
+          ) : (
+            <button
+              type="button"
+              onClick={onResend}
+              disabled={loading}
+              className="text-primary-600 hover:text-primary-700 font-medium text-sm focus:outline-none focus:underline disabled:opacity-50"
+            >
+              Resend code
+            </button>
+          )}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-gray-500 hover:text-gray-700 text-sm focus:outline-none focus:underline"
+            >
+              Use a different email
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   );
 }

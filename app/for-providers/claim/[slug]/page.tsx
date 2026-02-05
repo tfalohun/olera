@@ -12,7 +12,7 @@ import Badge from "@/components/ui/Badge";
 export default function ClaimProfilePage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { user, openAuthModal } = useAuth();
+  const { user, openAuthFlow } = useAuth();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,18 +45,15 @@ export default function ClaimProfilePage() {
   const handleClaim = () => {
     if (!profile) return;
 
-    if (!user) {
-      // Open auth modal; after sign-up the modal redirects via deferred returnUrl
-      openAuthModal({
-        action: "claim",
-        targetProfileId: profile.id,
-        returnUrl: `/onboarding?claim=${profile.id}&intent=organization`,
-      }, "sign-up");
-      return;
-    }
-
-    // Authenticated — redirect to onboarding with claim pre-set
-    router.push(`/onboarding?claim=${profile.id}&intent=organization`);
+    // Open the unified auth flow modal with the claim profile pre-selected
+    // The modal handles both authenticated and unauthenticated users:
+    // - If authenticated: skips to onboarding completion with claim profile
+    // - If not authenticated: goes through onboarding then auth
+    openAuthFlow({
+      intent: "provider",
+      providerType: "organization",
+      claimProfile: profile,
+    });
   };
 
   if (loading) {

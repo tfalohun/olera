@@ -15,11 +15,36 @@ import { setDeferredAction } from "@/lib/deferred-action";
 
 export type AuthModalView = "sign-in" | "sign-up";
 
+/** Intent for the auth flow modal */
+export type AuthFlowIntent = "family" | "provider" | null;
+
+/** Provider subtype for the auth flow modal */
+export type AuthFlowProviderType = "organization" | "caregiver" | null;
+
+/** Options for opening the auth flow modal */
+export interface OpenAuthFlowOptions {
+  /** Deferred action to execute after auth */
+  deferred?: Omit<DeferredAction, "createdAt">;
+  /** Pre-set intent (skip the family vs provider question) */
+  intent?: AuthFlowIntent;
+  /** Pre-set provider type (skip the org vs caregiver question) */
+  providerType?: AuthFlowProviderType;
+  /** Profile to claim (for claim flow) */
+  claimProfile?: Profile | null;
+  /** Start with sign-in instead of sign-up */
+  defaultToSignIn?: boolean;
+}
+
 interface AuthContextValue extends AuthState {
+  /** @deprecated Use openAuthFlow instead */
   openAuthModal: (deferred?: Omit<DeferredAction, "createdAt">, view?: AuthModalView) => void;
+  /** Open the unified auth flow modal */
+  openAuthFlow: (options?: OpenAuthFlowOptions) => void;
   closeAuthModal: () => void;
   isAuthModalOpen: boolean;
   authModalDefaultView: AuthModalView;
+  /** Current auth flow modal options */
+  authFlowOptions: OpenAuthFlowOptions;
   signOut: (onComplete?: () => void) => Promise<void>;
   refreshAccountData: () => Promise<void>;
   switchProfile: (profileId: string) => Promise<void>;
@@ -65,6 +90,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalDefaultView, setAuthModalDefaultView] = useState<AuthModalView>("sign-up");
+  const [authFlowOptions, setAuthFlowOptions] = useState<OpenAuthFlowOptions>({});
 
   const configured = isSupabaseConfigured();
 
@@ -227,19 +253,37 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [configured, fetchAccountData]);
 
+  /** @deprecated Use openAuthFlow instead */
   const openAuthModal = useCallback(
     (deferred?: Omit<DeferredAction, "createdAt">, view?: AuthModalView) => {
       if (deferred) {
         setDeferredAction(deferred);
       }
+      // Convert to new auth flow options format
+      setAuthFlowOptions({
+        deferred,
+        defaultToSignIn: view === "sign-in",
+      });
       setAuthModalDefaultView(view || "sign-up");
       setIsAuthModalOpen(true);
     },
     []
   );
 
+  /** Open the unified auth flow modal with configurable options */
+  const openAuthFlow = useCallback((options: OpenAuthFlowOptions = {}) => {
+    if (options.deferred) {
+      setDeferredAction(options.deferred);
+    }
+    setAuthFlowOptions(options);
+    setAuthModalDefaultView(options.defaultToSignIn ? "sign-in" : "sign-up");
+    setIsAuthModalOpen(true);
+  }, []);
+
   const closeAuthModal = useCallback(() => {
     setIsAuthModalOpen(false);
+    // Reset options when modal closes
+    setAuthFlowOptions({});
   }, []);
 
   /**
@@ -327,9 +371,11 @@ export default function AuthProvider({ children }: AuthProviderProps) {
       value={{
         ...state,
         openAuthModal,
+        openAuthFlow,
         closeAuthModal,
         isAuthModalOpen,
         authModalDefaultView,
+        authFlowOptions,
         signOut,
         refreshAccountData,
         switchProfile,
