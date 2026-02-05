@@ -754,37 +754,9 @@ export default function AuthFlowModal({
         return;
       }
 
-      // Verified - redirect to onboarding page to complete profile setup
-      // This delegates account/profile creation to the onboarding page which
-      // has the proper infrastructure and can handle edge cases
-      setLoading(false);
-
-      // Build onboarding URL with relevant params
-      const intentParam = data.intent === "family" ? "family" :
-                         data.providerType === "organization" ? "organization" : "caregiver";
-      const claimParam = data.claimedProfileId ? `&claim=${data.claimedProfileId}` : "";
-
-      // Save form data to sessionStorage for onboarding page to pick up
-      const onboardingData = {
-        data: {
-          intent: intentParam,
-          displayName: data.displayName || data.orgName || "",
-          category: data.category,
-          city: data.city,
-          state: data.state,
-          zip: data.zip,
-          careTypes: data.careTypes,
-          description: data.description,
-          phone: data.phone,
-          claimedProfileId: data.claimedProfileId,
-        },
-        step: data.claimedProfileId ? "profile-info" : "profile-info",
-      };
-      sessionStorage.setItem("olera_onboarding_form", JSON.stringify(onboardingData));
-
-      // Close modal and redirect
-      onClose();
-      router.push(`/onboarding?intent=${intentParam}${claimParam}`);
+      // OTP verified - complete the flow by creating account and profile
+      // This is the final step; handleComplete will persist all data and redirect
+      await handleComplete();
     } catch (err) {
       console.error("OTP verification error:", err);
       setError("Something went wrong. Please try again.");
@@ -855,56 +827,27 @@ export default function AuthFlowModal({
         return;
       }
 
-      // Get or create account row
+      // Ensure account exists via server-side API (bypasses RLS)
       let accountRow = account;
       if (!accountRow) {
-        // Poll for account (database trigger should create it after auth)
-        for (let i = 0; i < 15; i++) {
-          const { data: existingAcct } = await supabase
-            .from("accounts")
-            .select("*")
-            .eq("user_id", currentUser.id)
-            .single();
+        const displayName = data.displayName || data.orgName || currentUser.email?.split("@")[0] || "";
+        const response = await fetch("/api/auth/ensure-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ display_name: displayName }),
+        });
 
-          if (existingAcct) {
-            accountRow = existingAcct;
-            break;
-          }
-
-          // Wait before retrying (exponential backoff: 200ms, 400ms, 600ms...)
-          await new Promise((r) => setTimeout(r, 200 + i * 200));
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to set up account");
         }
 
-        // If still no account, try to create one directly
-        if (!accountRow) {
-          const displayName = data.displayName || data.orgName || currentUser.email?.split("@")[0] || "";
-          const { data: newAcct, error: createErr } = await supabase
-            .from("accounts")
-            .insert({
-              user_id: currentUser.id,
-              display_name: displayName,
-              onboarding_completed: false,
-            })
-            .select()
-            .single();
-
-          if (createErr) {
-            console.error("Failed to create account:", createErr.message, createErr.code, createErr.details);
-            // One more fetch attempt in case of race condition
-            const { data: retryAcct } = await supabase
-              .from("accounts")
-              .select("*")
-              .eq("user_id", currentUser.id)
-              .single();
-            accountRow = retryAcct;
-          } else {
-            accountRow = newAcct;
-          }
-        }
+        const { account: newAccount } = await response.json();
+        accountRow = newAccount;
       }
 
       if (!accountRow) {
-        setError("Account setup failed. Please refresh and try again.");
+        setError("Account setup failed. Please try again.");
         setLoading(false);
         return;
       }
@@ -930,11 +873,13 @@ export default function AuthFlowModal({
         .eq("id", accountRow.id);
       if (accountErr) throw accountErr;
 
-      // Create membership
-      await supabase.from("memberships").upsert(
-        { account_id: accountRow.id, plan: "free", status: "free" },
-        { onConflict: "account_id" }
-      );
+      // Create membership for providers
+      if (data.intent === "provider") {
+        await supabase.from("memberships").upsert(
+          { account_id: accountRow.id, plan: "free", status: "free" },
+          { onConflict: "account_id" }
+        );
+      }
 
       // Clear saved progress
       try {
@@ -943,10 +888,16 @@ export default function AuthFlowModal({
         // Ignore
       }
 
-      // Refresh auth state and redirect
+      // Refresh auth state and redirect to appropriate dashboard
       await refreshAccountData();
       onClose();
-      router.push("/portal");
+
+      // Route based on intent: families browse, providers go to portal
+      if (data.intent === "family") {
+        router.push("/browse");
+      } else {
+        router.push("/portal");
+      }
     } catch (err: unknown) {
       const message =
         err && typeof err === "object" && "message" in err
