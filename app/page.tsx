@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useCitySearch } from "@/hooks/use-city-search";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -130,32 +131,7 @@ const careTypeOptions = [
   { value: "independent-living", label: "Independent Living" },
 ];
 
-// Location suggestions for autocomplete
-const locationSuggestions = [
-  { city: "Dallas", state: "TX", full: "Dallas, TX" },
-  { city: "Plano", state: "TX", full: "Plano, TX" },
-  { city: "Frisco", state: "TX", full: "Frisco, TX" },
-  { city: "Irving", state: "TX", full: "Irving, TX" },
-  { city: "Richardson", state: "TX", full: "Richardson, TX" },
-  { city: "Garland", state: "TX", full: "Garland, TX" },
-  { city: "McKinney", state: "TX", full: "McKinney, TX" },
-  { city: "Carrollton", state: "TX", full: "Carrollton, TX" },
-  { city: "Arlington", state: "TX", full: "Arlington, TX" },
-  { city: "Fort Worth", state: "TX", full: "Fort Worth, TX" },
-  { city: "Austin", state: "TX", full: "Austin, TX" },
-  { city: "Houston", state: "TX", full: "Houston, TX" },
-  { city: "San Antonio", state: "TX", full: "San Antonio, TX" },
-  { city: "New York", state: "NY", full: "New York, NY" },
-  { city: "Los Angeles", state: "CA", full: "Los Angeles, CA" },
-  { city: "Chicago", state: "IL", full: "Chicago, IL" },
-  { city: "Phoenix", state: "AZ", full: "Phoenix, AZ" },
-  { city: "Philadelphia", state: "PA", full: "Philadelphia, PA" },
-  { city: "Denver", state: "CO", full: "Denver, CO" },
-  { city: "Seattle", state: "WA", full: "Seattle, WA" },
-  { city: "Miami", state: "FL", full: "Miami, FL" },
-  { city: "Atlanta", state: "GA", full: "Atlanta, GA" },
-  { city: "Boston", state: "MA", full: "Boston, MA" },
-];
+// Location suggestions moved to useCitySearch hook for comprehensive US city search
 
 // Scrolling tags data
 const scrollingTags = {
@@ -899,19 +875,8 @@ export default function HomePage() {
     );
   };
 
-  // Filter location suggestions based on input
-  const filteredLocations = React.useMemo(() => {
-    if (!location.trim()) return locationSuggestions.slice(0, 8);
-    const search = location.toLowerCase();
-    return locationSuggestions
-      .filter(
-        (loc) =>
-          loc.city.toLowerCase().includes(search) ||
-          loc.state.toLowerCase().includes(search) ||
-          loc.full.toLowerCase().includes(search)
-      )
-      .slice(0, 8);
-  }, [location]);
+  // City search with progressive loading (18K+ US cities, ZIP codes, states)
+  const { results: cityResults, preload: preloadCities } = useCitySearch(location);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -1102,7 +1067,10 @@ export default function HomePage() {
                             setLocation(e.target.value);
                             setShowLocationDropdown(true);
                           }}
-                          onFocus={() => setShowLocationDropdown(true)}
+                          onFocus={() => {
+                            setShowLocationDropdown(true);
+                            preloadCities(); // Preload full city data on focus
+                          }}
                           placeholder="City or ZIP code"
                           className="w-full ml-3 bg-transparent border-none text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 text-base"
                         />
@@ -1138,8 +1106,8 @@ export default function HomePage() {
 
                           <div className="border-t border-gray-100 my-1" />
 
-                          {filteredLocations.length > 0 ? (
-                            filteredLocations.map((loc) => (
+                          {cityResults.length > 0 ? (
+                            cityResults.map((loc) => (
                               <button
                                 key={loc.full}
                                 type="button"

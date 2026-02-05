@@ -1,38 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useCitySearch } from "@/hooks/use-city-search";
 import { useRouter } from "next/navigation";
 import ProviderCard from "@/components/providers/ProviderCard";
 import type { Provider } from "@/components/providers/ProviderCard";
 import { allBrowseProviders, getCareTypeLabel, getCareTypeName } from "@/lib/mock-providers";
 import { useNavbar } from "@/components/shared/NavbarContext";
 
-// Location suggestions for autocomplete
-const locationSuggestions = [
-  { city: "Dallas", state: "TX", full: "Dallas, TX" },
-  { city: "Plano", state: "TX", full: "Plano, TX" },
-  { city: "Frisco", state: "TX", full: "Frisco, TX" },
-  { city: "Irving", state: "TX", full: "Irving, TX" },
-  { city: "Richardson", state: "TX", full: "Richardson, TX" },
-  { city: "Garland", state: "TX", full: "Garland, TX" },
-  { city: "McKinney", state: "TX", full: "McKinney, TX" },
-  { city: "Carrollton", state: "TX", full: "Carrollton, TX" },
-  { city: "Arlington", state: "TX", full: "Arlington, TX" },
-  { city: "Fort Worth", state: "TX", full: "Fort Worth, TX" },
-  { city: "Austin", state: "TX", full: "Austin, TX" },
-  { city: "Houston", state: "TX", full: "Houston, TX" },
-  { city: "San Antonio", state: "TX", full: "San Antonio, TX" },
-  { city: "New York", state: "NY", full: "New York, NY" },
-  { city: "Los Angeles", state: "CA", full: "Los Angeles, CA" },
-  { city: "Chicago", state: "IL", full: "Chicago, IL" },
-  { city: "Phoenix", state: "AZ", full: "Phoenix, AZ" },
-  { city: "Philadelphia", state: "PA", full: "Philadelphia, PA" },
-  { city: "Denver", state: "CO", full: "Denver, CO" },
-  { city: "Seattle", state: "WA", full: "Seattle, WA" },
-  { city: "Miami", state: "FL", full: "Miami, FL" },
-  { city: "Atlanta", state: "GA", full: "Atlanta, GA" },
-  { city: "Boston", state: "MA", full: "Boston, MA" },
-];
+// Location suggestions moved to useCitySearch hook for comprehensive US city search
 
 const careTypes = [
   { id: "all", label: "All Care Types" },
@@ -188,19 +164,8 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
   const locationInputRef = useRef<HTMLInputElement>(null);
   const mapListingsRef = useRef<HTMLDivElement>(null);
 
-  // Filter location suggestions based on input
-  const filteredLocations = useMemo(() => {
-    if (!locationInput.trim()) return locationSuggestions.slice(0, 8);
-    const search = locationInput.toLowerCase();
-    return locationSuggestions
-      .filter(
-        (loc) =>
-          loc.city.toLowerCase().includes(search) ||
-          loc.state.toLowerCase().includes(search) ||
-          loc.full.toLowerCase().includes(search)
-      )
-      .slice(0, 8);
-  }, [locationInput]);
+  // City search with progressive loading (18K+ US cities, ZIP codes, states)
+  const { results: cityResults, preload: preloadCities } = useCitySearch(locationInput);
 
   // US state abbreviation mapping
   const stateAbbreviations: Record<string, string> = {
@@ -458,6 +423,7 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
                         type="text"
                         value={locationInput}
                         onChange={(e) => setLocationInput(e.target.value)}
+                        onFocus={preloadCities}
                         placeholder="Search city or zip code..."
                         className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-300"
                       />
@@ -480,7 +446,7 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
                   <div className="border-t border-gray-100 my-1" />
 
                   <div className="max-h-[200px] overflow-y-auto">
-                    {filteredLocations.map((loc) => (
+                    {cityResults.map((loc) => (
                       <button
                         key={loc.full}
                         onClick={() => {
@@ -500,7 +466,7 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
                         {loc.full}
                       </button>
                     ))}
-                    {filteredLocations.length === 0 && (
+                    {cityResults.length === 0 && (
                       <div className="px-3 py-4 text-sm text-gray-500 text-center">
                         No locations found
                       </div>
