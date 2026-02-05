@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import FindCareMegaMenu from "./FindCareMegaMenu";
 import { NAV_LINKS } from "./NavMenuData";
+import { useNavbar } from "./NavbarContext";
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFindCareOpen, setIsFindCareOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const { visible } = useNavbar();
 
   // Track scroll position for navbar background
   useEffect(() => {
@@ -29,12 +31,18 @@ export default function Navbar() {
     return () => document.removeEventListener("keydown", handler);
   }, [isFindCareOpen]);
 
+  // Only show shadow when navbar is visible AND scrolled (prevents shadow bleeding when hidden)
+  const showShadow = visible && isScrolled;
+
   return (
     <>
       <nav
-        className={`sticky top-0 z-50 transition-all duration-300 bg-white ${
-          isScrolled ? "shadow-sm" : ""
-        }`}
+        className="sticky top-0 z-50 bg-white"
+        style={{
+          transform: visible ? "translateY(0)" : "translateY(-100%)",
+          boxShadow: showShadow ? "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)" : "none",
+          transition: "transform 200ms cubic-bezier(0.33, 1, 0.68, 1), box-shadow 150ms ease-out",
+        }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
