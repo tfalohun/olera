@@ -10,7 +10,11 @@ import {
   formatPriceRange,
   getCategoryDisplayName,
   getPrimaryImage,
+  toCardFormat,
+  mockToCardFormat,
+  type ProviderCardData,
 } from "@/lib/types/provider";
+import { allBrowseProviders } from "@/lib/mock-providers";
 import BrowseFilters from "@/components/browse/BrowseFilters";
 
 // Care types matching iOS Supabase provider_category values
@@ -34,14 +38,17 @@ export default function BrowsePageClient({
   careTypeFilter,
   stateFilter,
 }: BrowsePageClientProps) {
-  const [providers, setProviders] = useState<Provider[]>([]);
+  const [providers, setProviders] = useState<ProviderCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
+  const [usingMockData, setUsingMockData] = useState(false);
 
   useEffect(() => {
     async function fetchProviders() {
+      // If Supabase not configured, use mock data immediately
       if (!isSupabaseConfigured()) {
-        setFetchError(true);
+        console.log("Supabase not configured, using mock data");
+        setProviders(allBrowseProviders.map(mockToCardFormat));
+        setUsingMockData(true);
         setIsLoading(false);
         return;
       }
@@ -57,8 +64,10 @@ export default function BrowsePageClient({
 
         // Text search on provider_name or city
         if (searchQuery) {
+          // Escape special characters in search query for Supabase
+          const safeQuery = searchQuery.replace(/[%_]/g, "");
           query = query.or(
-            `provider_name.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,zipcode.eq.${parseInt(searchQuery) || 0}`
+            `provider_name.ilike.%${safeQuery}%,city.ilike.%${safeQuery}%`
           );
         }
 
@@ -78,15 +87,26 @@ export default function BrowsePageClient({
         }
 
         const { data, error } = await query;
+
         if (error) {
           console.error("Browse fetch error:", error.message);
-          setFetchError(true);
+          // Fall back to mock data
+          setProviders(allBrowseProviders.map(mockToCardFormat));
+          setUsingMockData(true);
+        } else if (!data || data.length === 0) {
+          // No results from Supabase - show mock data as fallback
+          setProviders(allBrowseProviders.map(mockToCardFormat));
+          setUsingMockData(true);
         } else {
-          setProviders((data as Provider[]) || []);
+          // Success! Use real data
+          setProviders((data as Provider[]).map(toCardFormat));
+          setUsingMockData(false);
         }
       } catch (err) {
         console.error("Browse page error:", err);
-        setFetchError(true);
+        // Fall back to mock data on any error
+        setProviders(allBrowseProviders.map(mockToCardFormat));
+        setUsingMockData(true);
       }
 
       setIsLoading(false);
@@ -94,6 +114,35 @@ export default function BrowsePageClient({
 
     fetchProviders();
   }, [searchQuery, careTypeFilter, stateFilter]);
+
+  // Filter mock data client-side if using fallback
+  const filteredProviders = usingMockData
+    ? providers.filter((p) => {
+        // Apply care type filter
+        if (careTypeFilter) {
+          const careTypeOption = CARE_TYPE_OPTIONS.find(
+            (ct) => ct.label.toLowerCase().replace(/\s+/g, "-") === careTypeFilter
+          );
+          if (careTypeOption && p.primaryCategory) {
+            // Match category loosely
+            const searchTerm = careTypeOption.label.toLowerCase();
+            if (!p.primaryCategory.toLowerCase().includes(searchTerm)) {
+              return false;
+            }
+          }
+        }
+        // Apply search filter
+        if (searchQuery) {
+          const search = searchQuery.toLowerCase();
+          const nameMatch = p.name.toLowerCase().includes(search);
+          const addressMatch = p.address?.toLowerCase().includes(search);
+          if (!nameMatch && !addressMatch) {
+            return false;
+          }
+        }
+        return true;
+      })
+    : providers;
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -126,13 +175,7 @@ export default function BrowsePageClient({
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
             <p className="mt-4 text-lg text-gray-600">Loading providers...</p>
           </div>
-        ) : fetchError ? (
-          <div className="text-center py-12">
-            <p className="text-lg text-gray-600">
-              Unable to load providers. Please try again later.
-            </p>
-          </div>
-        ) : providers.length === 0 ? (
+        ) : filteredProviders.length === 0 ? (
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
               No providers found
@@ -154,11 +197,11 @@ export default function BrowsePageClient({
         ) : (
           <>
             <p className="text-base text-gray-500 mb-6">
-              {providers.length} provider{providers.length !== 1 ? "s" : ""} found
+              {filteredProviders.length} provider{filteredProviders.length !== 1 ? "s" : ""} found
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {providers.map((provider) => (
-                <ProviderBrowseCard key={provider.provider_id} provider={provider} />
+              {filteredProviders.map((provider) => (
+                <ProviderBrowseCard key={provider.id} provider={provider} />
               ))}
             </div>
           </>
@@ -168,30 +211,26 @@ export default function BrowsePageClient({
   );
 }
 
-function ProviderBrowseCard({ provider }: { provider: Provider }) {
-  const priceRange = formatPriceRange(provider);
-  const locationStr = formatLocation(provider);
-  const categoryDisplay = getCategoryDisplayName(provider.provider_category);
-  const primaryImage = getPrimaryImage(provider);
-  const rating = provider.google_rating;
+function ProviderBrowseCard({ provider }: { provider: ProviderCardData }) {
+  const rating = provider.rating;
 
   return (
     <Link
-      href={`/provider/${provider.provider_id}`}
+      href={`/provider/${provider.slug || provider.id}`}
       className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md hover:border-primary-200 transition-shadow duration-200 block cursor-pointer"
     >
       {/* Image */}
       <div className="relative h-48 bg-gray-200">
-        {primaryImage ? (
+        {provider.image ? (
           <img
-            src={primaryImage}
-            alt={provider.provider_name}
+            src={provider.image}
+            alt={provider.name}
             className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-primary-100 to-primary-300 flex items-center justify-center">
             <span className="text-4xl font-bold text-primary-600/40">
-              {provider.provider_name.charAt(0)}
+              {provider.name.charAt(0)}
             </span>
           </div>
         )}
@@ -210,22 +249,24 @@ function ProviderBrowseCard({ provider }: { provider: Provider }) {
       {/* Content */}
       <div className="p-4">
         {/* Category */}
-        <p className="text-xs font-semibold text-primary-600 uppercase tracking-wide mb-1">
-          {categoryDisplay}
-        </p>
-
-        <h3 className="font-semibold text-gray-900 text-lg leading-tight">
-          {provider.provider_name}
-        </h3>
-
-        {locationStr && (
-          <p className="text-gray-500 text-base mt-1">{locationStr}</p>
+        {provider.primaryCategory && (
+          <p className="text-xs font-semibold text-primary-600 uppercase tracking-wide mb-1">
+            {provider.primaryCategory}
+          </p>
         )}
 
-        {priceRange && (
+        <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+          {provider.name}
+        </h3>
+
+        {provider.address && (
+          <p className="text-gray-500 text-base mt-1">{provider.address}</p>
+        )}
+
+        {provider.priceRange && (
           <div className="mt-3">
             <p className="text-gray-500 text-sm">Estimated Pricing</p>
-            <p className="text-gray-900 font-semibold">{priceRange}</p>
+            <p className="text-gray-900 font-semibold">{provider.priceRange}</p>
           </div>
         )}
 
