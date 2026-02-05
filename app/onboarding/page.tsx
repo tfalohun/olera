@@ -195,12 +195,61 @@ function OnboardingContent() {
   };
 
   const handleSubmit = async (claimedId?: string | null, seededProfile?: Profile) => {
-    if (!user || !account || !isSupabaseConfigured()) return;
+    if (!user || !isSupabaseConfigured()) return;
     setSubmitting(true);
     setError("");
 
     try {
       const supabase = createClient();
+
+      // Ensure account exists (create if needed - handles edge case where
+      // database trigger hasn't fired yet after OTP verification)
+      let currentAccount = account;
+      if (!currentAccount) {
+        // First try to fetch (trigger may have created it)
+        const { data: existingAcct } = await supabase
+          .from("accounts")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (existingAcct) {
+          currentAccount = existingAcct;
+        } else {
+          // Create account if it doesn't exist
+          const { data: newAcct, error: createErr } = await supabase
+            .from("accounts")
+            .insert({
+              user_id: user.id,
+              display_name: data.displayName || user.email?.split("@")[0] || "",
+              onboarding_completed: false,
+            })
+            .select()
+            .single();
+
+          if (createErr) {
+            console.error("Failed to create account:", createErr);
+            // One more fetch attempt in case of race condition
+            const { data: retryAcct } = await supabase
+              .from("accounts")
+              .select("*")
+              .eq("user_id", user.id)
+              .single();
+            currentAccount = retryAcct;
+          } else {
+            currentAccount = newAcct;
+          }
+        }
+      }
+
+      if (!currentAccount) {
+        setError("Failed to set up your account. Please try refreshing the page.");
+        setSubmitting(false);
+        return;
+      }
+
+      // Refresh auth context to pick up the new account
+      await refreshAccountData();
       const profileId = claimedId ?? data.claimedProfileId;
 
       if (profileId) {
@@ -219,7 +268,7 @@ function OnboardingContent() {
         // Only overwrite fields that are empty/missing in the seeded profile
         // to preserve richer seeded data (e.g., care_types, description).
         const update: Record<string, unknown> = {
-          account_id: account.id,
+          account_id: currentAccount.id,
           claim_state: "claimed" as const,
         };
 
@@ -256,7 +305,7 @@ function OnboardingContent() {
         const accountUpdate: Record<string, unknown> = {
           onboarding_completed: true,
         };
-        if (!account.display_name) {
+        if (!currentAccount.display_name) {
           accountUpdate.display_name = data.displayName;
         }
         if (!isAddingProfile) {
@@ -266,7 +315,7 @@ function OnboardingContent() {
         const { error: accountError } = await supabase
           .from("accounts")
           .update(accountUpdate)
-          .eq("id", account.id);
+          .eq("id", currentAccount.id);
 
         if (accountError) throw accountError;
 
@@ -274,7 +323,7 @@ function OnboardingContent() {
         if (data.intent !== "family") {
           await supabase.from("memberships").upsert(
             {
-              account_id: account.id,
+              account_id: currentAccount.id,
               plan: "free",
               status: "free",
             },
@@ -288,7 +337,7 @@ function OnboardingContent() {
         const { data: newProfile, error: profileError } = await supabase
           .from("profiles")
           .insert({
-            account_id: account.id,
+            account_id: currentAccount.id,
             slug,
             type: data.intent!,
             category: data.category,
@@ -314,7 +363,7 @@ function OnboardingContent() {
         const newAccountUpdate: Record<string, unknown> = {
           onboarding_completed: true,
         };
-        if (!account.display_name) {
+        if (!currentAccount.display_name) {
           newAccountUpdate.display_name = data.displayName;
         }
         if (!isAddingProfile) {
@@ -324,7 +373,7 @@ function OnboardingContent() {
         const { error: accountError } = await supabase
           .from("accounts")
           .update(newAccountUpdate)
-          .eq("id", account.id);
+          .eq("id", currentAccount.id);
 
         if (accountError) throw accountError;
 
@@ -332,7 +381,7 @@ function OnboardingContent() {
         if (data.intent !== "family") {
           await supabase.from("memberships").upsert(
             {
-              account_id: account.id,
+              account_id: currentAccount.id,
               plan: "free",
               status: "free",
             },

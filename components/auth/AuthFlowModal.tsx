@@ -754,9 +754,37 @@ export default function AuthFlowModal({
         return;
       }
 
-      // Verified - proceed to profile creation
+      // Verified - redirect to onboarding page to complete profile setup
+      // This delegates account/profile creation to the onboarding page which
+      // has the proper infrastructure and can handle edge cases
       setLoading(false);
-      await handleComplete();
+
+      // Build onboarding URL with relevant params
+      const intentParam = data.intent === "family" ? "family" :
+                         data.providerType === "organization" ? "organization" : "caregiver";
+      const claimParam = data.claimedProfileId ? `&claim=${data.claimedProfileId}` : "";
+
+      // Save form data to sessionStorage for onboarding page to pick up
+      const onboardingData = {
+        data: {
+          intent: intentParam,
+          displayName: data.displayName || data.orgName || "",
+          category: data.category,
+          city: data.city,
+          state: data.state,
+          zip: data.zip,
+          careTypes: data.careTypes,
+          description: data.description,
+          phone: data.phone,
+          claimedProfileId: data.claimedProfileId,
+        },
+        step: data.claimedProfileId ? "profile-info" : "profile-info",
+      };
+      sessionStorage.setItem("olera_onboarding_form", JSON.stringify(onboardingData));
+
+      // Close modal and redirect
+      onClose();
+      router.push(`/onboarding?intent=${intentParam}${claimParam}`);
     } catch (err) {
       console.error("OTP verification error:", err);
       setError("Something went wrong. Please try again.");
