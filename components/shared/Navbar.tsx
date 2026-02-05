@@ -112,13 +112,7 @@ export default function Navbar() {
                 href="/auth/login"
                 className="text-[15px] font-medium text-gray-700 hover:text-primary-600 transition-colors"
               >
-                Log In
-              </Link>
-              <Link
-                href="/auth/signup"
-                className="btn-primary text-sm py-2 px-4"
-              >
-                Get Started
+                Login
               </Link>
             </div>
 
@@ -194,14 +188,7 @@ export default function Navbar() {
                   className="text-gray-600 hover:text-primary-600 font-medium"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  Log In
-                </Link>
-                <Link
-                  href="/auth/signup"
-                  className="btn-primary text-center"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Get Started
+                  Login
                 </Link>
               </div>
             </div>
