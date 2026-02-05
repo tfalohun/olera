@@ -120,7 +120,7 @@ export default function OtpInput({
   };
 
   return (
-    <div className="flex justify-center gap-2 sm:gap-3" role="group" aria-label="Verification code">
+    <div className="flex justify-center gap-1.5 sm:gap-2 max-w-xs mx-auto" role="group" aria-label="Verification code">
       {digits.map((digit, index) => (
         <input
           key={index}
@@ -138,8 +138,8 @@ export default function OtpInput({
           aria-label={`Digit ${index + 1} of ${length}`}
           autoComplete={index === 0 ? "one-time-code" : "off"}
           className={`
-            w-12 h-14 sm:w-14 sm:h-16
-            text-center text-2xl font-semibold
+            w-10 h-12 sm:w-11 sm:h-14
+            text-center text-xl sm:text-2xl font-semibold
             border-2 rounded-lg
             transition-all duration-150
             focus:outline-none focus:ring-2 focus:ring-offset-1

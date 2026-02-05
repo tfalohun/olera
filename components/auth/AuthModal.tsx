@@ -96,7 +96,7 @@ export default function AuthModal() {
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email: verifyingEmail,
         token: otpCode,
-        type: "email",
+        type: "signup",
       });
 
       if (verifyError) {

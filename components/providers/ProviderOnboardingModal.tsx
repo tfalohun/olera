@@ -466,7 +466,7 @@ export default function ProviderOnboardingModal({
       const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
         email: authEmail,
         token: otpCode,
-        type: "email",
+        type: "signup",
       });
 
       if (verifyError) {
