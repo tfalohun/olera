@@ -16,7 +16,7 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFindCareOpen, setIsFindCareOpen] = useState(false);
   const [isMobileCareOpen, setIsMobileCareOpen] = useState(false);
-  const { user, account, activeProfile, isLoading, openAuthFlow, signOut } =
+  const { user, account, activeProfile, openAuthFlow, signOut } =
     useAuth();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -159,9 +159,7 @@ export default function Navbar() {
             <div className="flex-1 flex items-center justify-end">
               {/* Desktop right section */}
               <div className="hidden lg:flex items-center">
-                {isLoading ? (
-                  <div className="w-20 h-8" />
-                ) : isAuthenticated ? (
+                {isAuthenticated ? (
                   /* ── Authenticated: avatar pill with user menu ── */
                   <div className="relative" ref={userMenuRef}>
                     <button
