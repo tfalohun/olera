@@ -7,11 +7,10 @@ import Button from "@/components/ui/Button";
 import type { ReactNode } from "react";
 
 export default function PortalLayout({ children }: { children: ReactNode }) {
-  const { user, account, activeProfile, isLoading } = useAuth();
+  const { user, account, activeProfile, isLoading, fetchError, refreshAccountData } = useAuth();
 
   // Brief spinner while getSession() runs (reads local storage — very fast)
-  // or while a brand-new account's DB trigger fires (~1-2s on first sign-up)
-  if (isLoading || (user && !account)) {
+  if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full" />
@@ -31,6 +30,31 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
             You need to be signed in to access the portal.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Signed in but account data unavailable
+  if (!account) {
+    // Fetch failed or timed out — show compact error with retry
+    if (fetchError) {
+      return (
+        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-base text-gray-600 mb-4">
+              Couldn&apos;t load your account data.
+            </p>
+            <Button size="sm" onClick={() => refreshAccountData()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    // Still loading — brief spinner
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full" />
       </div>
     );
   }
