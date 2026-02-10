@@ -169,13 +169,13 @@ function ResourcesPageContent() {
 
         {/* Category Pills */}
         <div className="flex justify-center mb-12">
-          <div className="inline-flex flex-wrap justify-center gap-1.5 p-1.5 bg-gray-100/80 rounded-full">
+          <div className="inline-flex flex-wrap justify-center gap-2 p-1.5 bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60">
             <button
               onClick={() => handleCategoryChange("all")}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeCareType === "all"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-gray-900 text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               All ({categoryCounts.all})
@@ -184,10 +184,10 @@ function ResourcesPageContent() {
               <button
                 key={careType}
                 onClick={() => handleCategoryChange(careType)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   activeCareType === careType
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "bg-gray-900 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-100"
                 }`}
               >
                 {CARE_TYPE_CONFIG[careType].label} ({categoryCounts[careType]})
