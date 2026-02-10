@@ -8,13 +8,15 @@ import ProviderCard from "@/components/providers/ProviderCard";
 import type { Provider as ProviderCardType } from "@/components/providers/ProviderCard";
 import { useNavbar } from "@/components/shared/NavbarContext";
 import Pagination from "@/components/ui/Pagination";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   type Provider as SupabaseProvider,
   PROVIDERS_TABLE,
   toCardFormat,
+  mockToCardFormat,
   type ProviderCardData,
 } from "@/lib/types/provider";
+import { topProviders } from "@/lib/mock-providers";
 
 const BrowseMap = dynamic(() => import("@/components/browse/BrowseMap"), {
   ssr: false,
@@ -188,9 +190,18 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
   const [providers, setProviders] = useState<ProviderCardData[]>([]);
   const [isLoadingProviders, setIsLoadingProviders] = useState(true);
 
-  // Fetch providers from Supabase
+  // Fetch providers from Supabase (or fall back to mock data)
   const fetchProviders = useCallback(async () => {
     setIsLoadingProviders(true);
+
+    // Fall back to mock data when Supabase is not configured
+    if (!isSupabaseConfigured()) {
+      const mockData = topProviders.map(mockToCardFormat);
+      setProviders(mockData);
+      setIsLoadingProviders(false);
+      return;
+    }
+
     try {
       const supabase = createClient();
       let query = supabase
