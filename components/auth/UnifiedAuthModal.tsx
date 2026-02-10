@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { createAuthClient } from "@/lib/supabase/auth-client";
 import { useAuth, type OpenAuthOptions } from "@/components/auth/AuthProvider";
 import Image from "next/image";
 import Modal from "@/components/ui/Modal";
@@ -148,8 +149,11 @@ export default function UnifiedAuthModal({
         return;
       }
 
-      const supabase = createClient();
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Use implicit-flow client for signUp to avoid PKCE code_challenge.
+      // The SSR browser client forces PKCE, but verifyOtp() can't send
+      // the code_verifier back, causing 403 on verification.
+      const authClient = createAuthClient();
+      const { data: authData, error: authError } = await authClient.auth.signUp({
         email,
         password,
         options: {
@@ -257,8 +261,9 @@ export default function UnifiedAuthModal({
         return;
       }
 
-      const supabase = createClient();
-      const { error: verifyError } = await supabase.auth.verifyOtp({
+      // Use implicit-flow client so verifyOtp works without PKCE code_verifier
+      const authClient = createAuthClient();
+      const { data: verifyData, error: verifyError } = await authClient.auth.verifyOtp({
         email,
         token: otpCode,
         type: otpContext === "signup" ? "signup" : "email",
@@ -274,6 +279,16 @@ export default function UnifiedAuthModal({
         }
         setLoading(false);
         return;
+      }
+
+      // Transfer session to the main SSR client (cookie-based) so
+      // middleware, server components, and AuthProvider all see it.
+      if (verifyData.session) {
+        const mainClient = createClient();
+        await mainClient.auth.setSession({
+          access_token: verifyData.session.access_token,
+          refresh_token: verifyData.session.refresh_token,
+        });
       }
 
       setLoading(false);
@@ -297,11 +312,12 @@ export default function UnifiedAuthModal({
         return;
       }
 
-      const supabase = createClient();
+      // Use implicit-flow client for OTP operations (avoids PKCE mismatch)
+      const authClient = createAuthClient();
 
       if (otpContext === "signup") {
         // For signup confirmation, use the dedicated resend API
-        const { error: resendError } = await supabase.auth.resend({
+        const { error: resendError } = await authClient.auth.resend({
           type: "signup",
           email,
         });
@@ -312,7 +328,7 @@ export default function UnifiedAuthModal({
         }
       } else {
         // For sign-in OTP, send a new magic code
-        const { error: resendError } = await supabase.auth.signInWithOtp({
+        const { error: resendError } = await authClient.auth.signInWithOtp({
           email,
           options: { shouldCreateUser: false },
         });
@@ -350,8 +366,9 @@ export default function UnifiedAuthModal({
         return;
       }
 
-      const supabase = createClient();
-      const { error: otpError } = await supabase.auth.signInWithOtp({
+      // Use implicit-flow client for OTP operations (avoids PKCE mismatch)
+      const authClient = createAuthClient();
+      const { error: otpError } = await authClient.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: false },
       });
