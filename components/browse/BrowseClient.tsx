@@ -649,7 +649,7 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
                 }}
                 className={`flex items-center justify-between h-9 px-3 w-[180px] rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                   !isAllTypes
-                    ? "bg-white text-gray-900 border-2 border-gray-900"
+                    ? "bg-white text-gray-900 border-2 border-primary-400"
                     : "bg-white border border-gray-300 text-gray-900 hover:border-gray-400"
                 }`}
               >
@@ -707,7 +707,7 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
                 }}
                 className={`flex items-center justify-between h-9 px-3 w-[160px] rounded-lg text-sm font-medium transition-colors overflow-hidden ${
                   selectedRating !== "any"
-                    ? "bg-white text-gray-900 border-2 border-gray-900"
+                    ? "bg-white text-gray-900 border-2 border-primary-400"
                     : "bg-white border border-gray-300 text-gray-900 hover:border-gray-400"
                 }`}
               >
@@ -762,7 +762,7 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
                 }}
                 className={`flex items-center justify-between h-9 px-3 w-[160px] rounded-lg text-sm font-medium transition-colors overflow-hidden ${
                   selectedPayment !== "any"
-                    ? "bg-white text-gray-900 border-2 border-gray-900"
+                    ? "bg-white text-gray-900 border-2 border-primary-400"
                     : "bg-white border border-gray-300 text-gray-900 hover:border-gray-400"
                 }`}
               >
@@ -817,7 +817,7 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
                 }}
                 className={`flex items-center justify-between h-9 px-3 w-[160px] rounded-lg text-sm font-medium transition-colors overflow-hidden ${
                   sortBy !== "recommended"
-                    ? "bg-white text-gray-900 border-2 border-gray-900"
+                    ? "bg-white text-gray-900 border-2 border-primary-400"
                     : "bg-white border border-gray-300 text-gray-900 hover:border-gray-400"
                 }`}
               >
