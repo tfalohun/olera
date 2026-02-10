@@ -238,8 +238,12 @@ export default function AuthFlowModal({
     if (initialIntent === "family") {
       return "family-info";
     }
+    // Direct sign-in: skip onboarding, go straight to auth step
+    if (defaultToSignIn && !initialIntent) {
+      return "auth";
+    }
     return "intent";
-  }, [initialIntent, initialProviderType, claimProfile]);
+  }, [initialIntent, initialProviderType, claimProfile, defaultToSignIn]);
 
   // Core state
   const [step, setStep] = useState<AuthFlowStep>(getInitialStep());
@@ -455,7 +459,11 @@ export default function AuthFlowModal({
         setStep("family-info");
         break;
       case "auth":
-        if (data.intent === "provider") {
+        // Direct sign-in mode: no onboarding steps to go back to
+        if (defaultToSignIn && !data.intent) {
+          // Close the modal instead
+          onClose();
+        } else if (data.intent === "provider") {
           setStep("visibility");
         } else {
           setStep("family-needs");
@@ -476,6 +484,8 @@ export default function AuthFlowModal({
     if (step === "family-info" && initialIntent === "family") return false;
     // Claim flow starts at visibility - can't go back
     if (step === "visibility" && claimProfile) return false;
+    // Direct sign-in mode: auth is the first step, use modal close instead
+    if (step === "auth" && defaultToSignIn && !data.intent) return false;
     return true;
   };
 
@@ -708,8 +718,16 @@ export default function AuthFlowModal({
         return;
       }
 
-      // Signed in - proceed to profile creation
       setLoading(false);
+
+      // Direct sign-in (no onboarding): just close the modal
+      // AuthProvider listener handles state refresh automatically
+      if (defaultToSignIn && !data.intent) {
+        onClose();
+        return;
+      }
+
+      // Onboarding sign-in: proceed to profile creation
       await handleComplete();
     } catch (err) {
       console.error("Sign in error:", err);
@@ -751,6 +769,13 @@ export default function AuthFlowModal({
           setError(verifyError.message);
         }
         setLoading(false);
+        return;
+      }
+
+      // Direct sign-in (no onboarding): just close the modal
+      if (defaultToSignIn && !data.intent) {
+        setLoading(false);
+        onClose();
         return;
       }
 
@@ -1059,6 +1084,14 @@ export default function AuthFlowModal({
   // ──────────────────────────────────────────────────────────
 
   const stepConfig = getStepConfig(step, data, !!user);
+  // Direct sign-in mode: override title based on auth mode
+  const isDirectSignIn = defaultToSignIn && !data.intent;
+  if (isDirectSignIn && step === "auth") {
+    stepConfig.title = authMode === "sign-in" ? "Welcome back" : "Create your account";
+  }
+  if (isDirectSignIn && step === "verify-code") {
+    stepConfig.title = "Verify your email";
+  }
   const showProgress = step !== "intent" && data.intent !== null;
 
   // ──────────────────────────────────────────────────────────

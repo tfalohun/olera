@@ -14,7 +14,7 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFindCareOpen, setIsFindCareOpen] = useState(false);
   const [isMobileCareOpen, setIsMobileCareOpen] = useState(false);
-  const { user, account, activeProfile, profiles, isLoading, openAuthModal, signOut } =
+  const { user, account, activeProfile, profiles, isLoading, openAuthFlow, signOut } =
     useAuth();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -279,7 +279,7 @@ export default function Navbar() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => openAuthModal(undefined, "sign-in")}
+                  onClick={() => openAuthFlow({ defaultToSignIn: true })}
                   className="text-[15px] font-medium text-gray-700 hover:text-primary-600 transition-colors focus:outline-none focus:underline"
                 >
                   Log In
@@ -464,7 +464,7 @@ export default function Navbar() {
                     type="button"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
-                      openAuthModal(undefined, "sign-in");
+                      openAuthFlow({ defaultToSignIn: true });
                     }}
                     className="text-left text-gray-600 hover:text-primary-600 font-medium"
                   >
