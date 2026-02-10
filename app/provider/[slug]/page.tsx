@@ -69,14 +69,6 @@ function CheckIcon({ className }: { className?: string }) {
   );
 }
 
-function ChevronRightIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}
-
 // Quick fact icon mapping
 const factIcons: Record<QuickFact["icon"], (props: { className?: string }) => React.JSX.Element> = {
   category: ({ className }) => (
@@ -258,38 +250,8 @@ export default async function ProviderPage({
         oleraScore={oleraScore}
       />
 
-      {/* ===== Breadcrumbs ===== */}
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-[44px]">
-        <ol className="flex items-center gap-1.5 text-sm text-gray-500">
-          <li>
-            <Link href="/" className="hover:text-primary-600 transition-colors">Home</Link>
-          </li>
-          <li><ChevronRightIcon className="w-3.5 h-3.5 text-gray-300" /></li>
-          <li>
-            <Link href="/browse" className="hover:text-primary-600 transition-colors">Browse</Link>
-          </li>
-          {categoryLabel && (
-            <>
-              <li><ChevronRightIcon className="w-3.5 h-3.5 text-gray-300" /></li>
-              <li>
-                <Link
-                  href={`/browse?type=${profile.category}`}
-                  className="hover:text-primary-600 transition-colors"
-                >
-                  {categoryLabel}
-                </Link>
-              </li>
-            </>
-          )}
-          <li><ChevronRightIcon className="w-3.5 h-3.5 text-gray-300" /></li>
-          <li className="text-gray-900 font-medium truncate max-w-[200px]">
-            {profile.display_name}
-          </li>
-        </ol>
-      </nav>
-
       {/* ===== Main Layout ===== */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-10">
 
         {/* -- Identity: Category + Provider Name + Location + Share/Save -- */}
         <div className="mb-4">
