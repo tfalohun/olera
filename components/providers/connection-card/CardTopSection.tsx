@@ -54,7 +54,7 @@ export default function CardTopSection({
     <div className="px-5 pt-5 pb-4">
       <div className="flex justify-between items-start">
         {/* Price — left side */}
-        {priceRange && (
+        {priceRange ? (
           <button
             onClick={() => scrollToSection("pricing")}
             className="text-left cursor-pointer hover:opacity-80 transition-opacity"
@@ -62,14 +62,18 @@ export default function CardTopSection({
             <p className="text-xs text-gray-500 font-medium mb-0.5">
               Starting from
             </p>
-            <p className="text-[26px] font-bold text-gray-900 leading-tight tracking-tight">
+            <p className="text-lg font-bold text-gray-900 leading-tight tracking-tight">
               {priceRange}
             </p>
           </button>
+        ) : (
+          <p className="text-sm text-gray-500 font-medium self-center">
+            Contact for pricing
+          </p>
         )}
 
         {/* Score — right side */}
-        {oleraScore && (
+        {oleraScore != null && oleraScore > 0 && (
           <button
             onClick={() => scrollToSection("reviews")}
             className="text-right cursor-pointer hover:opacity-80 transition-opacity"
@@ -97,7 +101,7 @@ export default function CardTopSection({
       {responseTime && !hideResponseTime && (
         <div className="flex items-center gap-1.5 mt-3.5 px-3 py-2 bg-amber-50 rounded-lg">
           <ZapIcon />
-          <span className="text-[13px] text-gray-700 font-medium">
+          <span className="text-sm text-gray-700 font-medium">
             Usually responds within {responseTime}
           </span>
         </div>

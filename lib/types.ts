@@ -152,7 +152,7 @@ export interface FamilyMetadata {
 // ============================================================
 
 export interface DeferredAction {
-  action: "save" | "inquiry" | "apply" | "claim" | "create_profile";
+  action: "save" | "inquiry" | "apply" | "claim" | "create_profile" | "phone_reveal";
   targetProfileId?: string;
   returnUrl: string;
   createdAt: string;

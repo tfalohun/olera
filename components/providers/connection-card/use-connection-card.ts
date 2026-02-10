@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { getDeferredAction, clearDeferredAction } from "@/lib/deferred-action";
 import { useSavedProviders } from "@/hooks/use-saved-providers";
 import { mapProviderCareTypes } from "./constants";
 import type {
@@ -52,8 +53,10 @@ export function useConnectionCard(props: ConnectionCardProps) {
     isActive,
   } = props;
 
-  const { user, account, activeProfile, refreshAccountData } = useAuth();
+  const { user, account, activeProfile, openAuth, refreshAccountData } =
+    useAuth();
   const savedProviders = useSavedProviders();
+  const phoneRevealTriggered = useRef(false);
 
   // ── State machine ──
   const [cardState, setCardState] = useState<CardState>("default");
@@ -104,6 +107,22 @@ export function useConnectionCard(props: ConnectionCardProps) {
 
     checkExisting();
   }, [user, activeProfile, providerId]);
+
+  // ── Handle deferred actions after auth ──
+  useEffect(() => {
+    if (phoneRevealTriggered.current) return;
+    if (!user) return;
+
+    const deferred = getDeferredAction();
+    if (
+      deferred?.action === "phone_reveal" &&
+      deferred?.targetProfileId === providerId
+    ) {
+      phoneRevealTriggered.current = true;
+      clearDeferredAction();
+      setPhoneRevealed(true);
+    }
+  }, [user, providerId]);
 
   // ── Navigation helpers ──
   const startFlow = useCallback(() => {
@@ -230,9 +249,19 @@ export function useConnectionCard(props: ConnectionCardProps) {
   }, []);
 
   const revealPhone = useCallback(() => {
+    if (!user) {
+      openAuth({
+        defaultMode: "sign-up",
+        deferred: {
+          action: "phone_reveal",
+          targetProfileId: providerId,
+          returnUrl: `/provider/${providerSlug}`,
+        },
+      });
+      return;
+    }
     setPhoneRevealed(true);
-    // AUTH_INTEGRATION_POINT: In the post-auth period, log phone_reveal_event here.
-  }, []);
+  }, [user, openAuth, providerId, providerSlug]);
 
   const toggleSave = useCallback(() => {
     savedProviders.toggleSave({
