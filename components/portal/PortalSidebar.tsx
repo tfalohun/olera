@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import ProfileSwitcher from "@/components/shared/ProfileSwitcher";
 
 interface NavItem {
   label: string;
@@ -69,13 +68,6 @@ export default function PortalSidebar() {
             {NAV_ITEMS.map((item) => renderNavLink(item))}
           </div>
         </nav>
-
-        {/* Bottom: Profile switcher */}
-        <div className="border-t border-gray-100">
-          <div className="p-4">
-            <ProfileSwitcher variant="sidebar" />
-          </div>
-        </div>
       </aside>
 
       {/* Mobile bottom nav */}
