@@ -18,15 +18,6 @@ import type {
 
 const CONNECTION_INTENT_KEY = "olera_connection_intent";
 
-function generateSlug(name: string): string {
-  const base = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  const suffix = Math.random().toString(36).substring(2, 6);
-  return `family-${base}-${suffix}`;
-}
-
 const INITIAL_INTENT: IntentData = {
   careRecipient: null,
   careType: null,
@@ -117,7 +108,7 @@ export function useConnectionCard(props: ConnectionCardProps) {
     }
   }, [user, providerId]);
 
-  // ── Submit connection request ──
+  // ── Submit connection request via API ──
   const submitRequest = useCallback(async (intentOverride?: IntentData) => {
     const intent = intentOverride || intentData;
 
@@ -125,132 +116,54 @@ export function useConnectionCard(props: ConnectionCardProps) {
     setError("");
 
     try {
-      if (!user || !account || !isSupabaseConfigured()) {
+      if (!user) {
         throw new Error("Please sign in to send a connection request.");
       }
 
-      const supabase = createClient();
-
-      // Ensure we have a family profile
-      let fromProfileId: string;
-
-      if (activeProfile?.type === "family") {
-        fromProfileId = activeProfile.id;
-      } else {
-        // Check for existing family profile
-        const { data: existingFamily } = await supabase
-          .from("business_profiles")
-          .select("id")
-          .eq("account_id", account.id)
-          .eq("type", "family")
-          .limit(1)
-          .single();
-
-        if (existingFamily) {
-          fromProfileId = existingFamily.id;
-        } else {
-          // Create a minimal family profile
-          const displayName =
-            account.display_name ||
-            user.email?.split("@")[0] ||
-            "Family";
-          const slug = generateSlug(displayName);
-
-          const { data: newProfile, error: profileError } = await supabase
-            .from("business_profiles")
-            .insert({
-              account_id: account.id,
-              slug,
-              type: "family",
-              category: null,
-              display_name: displayName,
-              care_types: [],
-              claim_state: "claimed",
-              verification_state: "unverified",
-              source: "user_created",
-              metadata: {},
-            })
-            .select("id")
-            .single();
-
-          if (profileError) throw new Error(profileError.message);
-          fromProfileId = newProfile.id;
-
-          if (!activeProfile) {
-            await supabase
-              .from("accounts")
-              .update({
-                active_profile_id: newProfile.id,
-                onboarding_completed: true,
-              })
-              .eq("id", account.id);
-            await refreshAccountData();
-          }
-        }
-      }
-
-      // Build name from account
-      const displayName = account.display_name || "";
-      const nameParts = displayName.trim().split(/\s+/);
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
-
-      // Insert connection request
-      const messagePayload = JSON.stringify({
-        care_recipient: intent.careRecipient,
-        care_type: intent.careType,
-        care_type_other: intent.careTypeOtherText || null,
-        urgency: intent.urgency,
-        additional_notes: intent.additionalNotes || null,
-        contact_preference: null,
-        seeker_phone: activeProfile?.phone || null,
-        seeker_email: user.email || "",
-        seeker_first_name: firstName,
-        seeker_last_name: lastName,
+      const res = await fetch("/api/connections/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId,
+          providerName,
+          providerSlug,
+          intentData: intent,
+        }),
       });
 
-      const { error: insertError } = await supabase
-        .from("connections")
-        .insert({
-          from_profile_id: fromProfileId,
-          to_profile_id: providerId,
-          type: "inquiry",
-          status: "pending",
-          message: messagePayload,
-        });
+      const data = await res.json();
 
-      if (insertError) {
-        if (
-          insertError.code === "23505" ||
-          insertError.message.includes("duplicate") ||
-          insertError.message.includes("unique")
-        ) {
-          setCardState("pending");
-          setPendingRequestDate(new Date().toISOString());
-          return;
-        }
-        throw new Error(insertError.message);
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to send request.");
       }
+
+      if (data.status === "duplicate") {
+        setCardState("pending");
+        setPendingRequestDate(data.created_at);
+        return;
+      }
+
+      // Refresh auth data so active profile is up-to-date
+      await refreshAccountData();
 
       // Transition to confirmation
       setCardState("confirmation");
-      setPhoneRevealed(true); // Phone revealed as reward after connecting
+      setPhoneRevealed(true);
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "message" in err
           ? (err as { message: string }).message
           : String(err);
       console.error("Connection request error:", msg);
-      setError(`Something went wrong. Please try again.`);
+      setError(msg || "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }, [
     user,
-    account,
-    activeProfile,
     providerId,
     providerName,
+    providerSlug,
     intentData,
     refreshAccountData,
   ]);
