@@ -117,18 +117,15 @@ export default function ConnectionCard(props: ConnectionCardProps) {
           />
         )}
 
-        {/* State 3: Not reachable until auth is integrated */}
         {hook.cardState === "returning" && (
           <ReturningUserState
             providerName={providerName}
             phone={phone}
-            careType="Help with daily activities"
-            careRecipient="A loved one"
-            urgency="As soon as possible"
-            contactInfo="Text me · (512) 555-1234"
-            additionalNotes=""
-            onSend={hook.submitRequest}
+            intentData={hook.intentData}
+            onSend={hook.submitFromReturning}
+            onEdit={hook.editFromReturning}
             submitting={hook.submitting}
+            error={hook.error}
           />
         )}
       </div>

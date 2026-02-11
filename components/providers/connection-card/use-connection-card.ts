@@ -54,6 +54,7 @@ export function useConnectionCard(props: ConnectionCardProps) {
   const [pendingRequestDate, setPendingRequestDate] = useState<string | null>(
     null
   );
+  const [previousIntent, setPreviousIntent] = useState<IntentData | null>(null);
 
   // ── Derived ──
   const availableCareTypes = mapProviderCareTypes(providerCareTypes);
@@ -66,7 +67,7 @@ export function useConnectionCard(props: ConnectionCardProps) {
     }
   }, [isActive]);
 
-  // ── Check for existing connection (logged-in users) ──
+  // ── Check for existing connection + fetch previous intent (logged-in users) ──
   useEffect(() => {
     if (!user || !profiles.length || !isSupabaseConfigured()) return;
 
@@ -88,6 +89,7 @@ export function useConnectionCard(props: ConnectionCardProps) {
         resolvedId = profile.id;
       }
 
+      // Check if there's an existing connection to THIS provider
       const { data } = await supabase
         .from("connections")
         .select("id, created_at")
@@ -101,6 +103,37 @@ export function useConnectionCard(props: ConnectionCardProps) {
       if (data) {
         setCardState("pending");
         setPendingRequestDate(data.created_at);
+        return; // Already connected — no need to fetch previous intent
+      }
+
+      // No connection to this provider — fetch the most recent connection
+      // to ANY provider to pre-fill intent data for returning users
+      const { data: recentConn } = await supabase
+        .from("connections")
+        .select("message")
+        .in("from_profile_id", profileIds)
+        .eq("type", "inquiry")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (recentConn?.message) {
+        try {
+          const parsed = JSON.parse(recentConn.message);
+          const restored: IntentData = {
+            careRecipient: parsed.care_recipient || null,
+            careType: parsed.care_type || null,
+            careTypeOtherText: "",
+            urgency: parsed.urgency || null,
+            additionalNotes: "",
+          };
+          // Only use as previous intent if core fields are present
+          if (restored.careRecipient && restored.careType && restored.urgency) {
+            setPreviousIntent(restored);
+          }
+        } catch {
+          // Invalid JSON — ignore
+        }
       }
     };
 
@@ -216,9 +249,15 @@ export function useConnectionCard(props: ConnectionCardProps) {
 
   // ── Navigation helpers ──
   const startFlow = useCallback(() => {
-    setCardState("intent");
-    setIntentStep(0);
-  }, []);
+    if (user && previousIntent) {
+      // Returning logged-in user — pre-fill and show compact summary
+      setIntentData(previousIntent);
+      setCardState("returning");
+    } else {
+      setCardState("intent");
+      setIntentStep(0);
+    }
+  }, [user, previousIntent]);
 
   const resetFlow = useCallback(() => {
     setCardState("default");
@@ -303,6 +342,16 @@ export function useConnectionCard(props: ConnectionCardProps) {
     setCardState("intent");
   }, []);
 
+  const editFromReturning = useCallback(() => {
+    setIntentStep(0);
+    setCardState("intent");
+  }, []);
+
+  const submitFromReturning = useCallback(() => {
+    setCardState("submitting");
+    submitRequest();
+  }, [submitRequest]);
+
   // ── Field setters ──
   const setRecipient = useCallback((val: CareRecipient) => {
     setIntentData((prev) => ({ ...prev, careRecipient: val }));
@@ -365,6 +414,8 @@ export function useConnectionCard(props: ConnectionCardProps) {
     goToNextIntentStep,
     goBackIntentStep,
     editIntentStep,
+    editFromReturning,
+    submitFromReturning,
 
     // Field setters
     setRecipient,

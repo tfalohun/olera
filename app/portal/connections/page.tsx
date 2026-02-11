@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
-import type { Connection, Profile } from "@/lib/types";
+import type { Connection, ConnectionStatus, Profile } from "@/lib/types";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import UpgradePrompt from "@/components/providers/UpgradePrompt";
+import ConnectionDrawer from "@/components/portal/ConnectionDrawer";
 
 interface ConnectionWithProfile extends Connection {
   fromProfile: Profile | null;
@@ -32,6 +33,7 @@ export default function ConnectionsPage() {
   const [responding, setResponding] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
 
   const isProvider =
     activeProfile?.type === "organization" ||
@@ -264,6 +266,7 @@ export default function ConnectionsPage() {
               hasFullAccess={hasFullAccess}
               responding={responding === connection.id}
               onStatusUpdate={handleStatusUpdate}
+              onSelect={setSelectedConnectionId}
             />
           ))}
         </div>
@@ -274,6 +277,19 @@ export default function ConnectionsPage() {
           <UpgradePrompt context="view full details and respond to connections" />
         </div>
       )}
+
+      <ConnectionDrawer
+        connectionId={selectedConnectionId}
+        isOpen={!!selectedConnectionId}
+        onClose={() => setSelectedConnectionId(null)}
+        onStatusChange={(connectionId: string, newStatus: ConnectionStatus) => {
+          setConnections((prev) =>
+            prev.map((c) =>
+              c.id === connectionId ? { ...c, status: newStatus } : c
+            )
+          );
+        }}
+      />
     </div>
   );
 }
@@ -316,6 +332,7 @@ function ConnectionCard({
   hasFullAccess,
   responding,
   onStatusUpdate,
+  onSelect,
 }: {
   connection: ConnectionWithProfile;
   activeProfileId: string;
@@ -323,6 +340,7 @@ function ConnectionCard({
   hasFullAccess: boolean;
   responding: boolean;
   onStatusUpdate: (id: string, status: "accepted" | "declined" | "archived") => void;
+  onSelect: (id: string) => void;
 }) {
   const isInbound = connection.to_profile_id === activeProfileId;
   const otherProfile = isInbound ? connection.fromProfile : connection.toProfile;
@@ -367,9 +385,10 @@ function ConnectionCard({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 hover:shadow-sm hover:border-gray-300 transition-all duration-150">
-      <Link
-        href={`/portal/connections/${connection.id}`}
-        className="block px-5 py-4"
+      <button
+        type="button"
+        onClick={() => onSelect(connection.id)}
+        className="block w-full text-left px-5 py-4 cursor-pointer bg-transparent border-none"
       >
         <div className="flex items-start gap-4">
           {/* Avatar */}
@@ -433,9 +452,9 @@ function ConnectionCard({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </div>
-      </Link>
+      </button>
 
-      {/* Quick actions — outside the link */}
+      {/* Quick actions — outside the button */}
       {isInbound && hasFullAccess && connection.status === "pending" && (
         <div className="px-5 pb-4 -mt-1 flex gap-2">
           <Button
