@@ -191,13 +191,6 @@ export function useConnectionCard(props: ConnectionCardProps) {
 
   const goToNextIntentStep = useCallback(() => {
     if (intentStep === 0 && intentData.careRecipient) {
-      // Pre-select if only 1 care type, but still show step 1 for confirmation
-      if (availableCareTypes.length === 1) {
-        setIntentData((prev) => ({
-          ...prev,
-          careType: availableCareTypes[0],
-        }));
-      }
       setIntentStep(1);
     } else if (intentStep === 1 && intentData.careType) {
       setIntentStep(2);

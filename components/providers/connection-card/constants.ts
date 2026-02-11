@@ -37,26 +37,11 @@ const CARE_TYPE_FROM_PROVIDER: Record<string, CareTypeValue> = {
 };
 
 export function mapProviderCareTypes(
-  providerCareTypes: string[]
+  _providerCareTypes: string[]
 ): CareTypeValue[] {
-  if (!providerCareTypes || providerCareTypes.length === 0) {
-    // No care types listed — show all standard options
-    return ["personal", "companion", "skilled_nursing", "memory"];
-  }
-
-  const mapped = new Set<CareTypeValue>();
-  for (const ct of providerCareTypes) {
-    const key = ct.toLowerCase().trim();
-    const val = CARE_TYPE_FROM_PROVIDER[key];
-    if (val) mapped.add(val);
-  }
-
-  // If nothing matched, show all standard options
-  if (mapped.size === 0) {
-    return ["personal", "companion", "skilled_nursing", "memory"];
-  }
-
-  return Array.from(mapped);
+  // Always show all standard options — the question is about
+  // what the user needs, not what the provider offers
+  return ["personal", "companion", "skilled_nursing", "memory"];
 }
 
 // ============================================================
