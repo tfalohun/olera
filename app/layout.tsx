@@ -4,6 +4,7 @@ import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
 import AuthProvider from "@/components/auth/AuthProvider";
 import GlobalUnifiedAuthModal from "@/components/auth/GlobalUnifiedAuthModal";
+import { SavedProvidersProvider } from "@/hooks/use-saved-providers";
 import { NavbarProvider } from "@/components/shared/NavbarContext";
 
 export const metadata: Metadata = {
@@ -29,12 +30,14 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-gray-50 min-h-screen flex flex-col font-sans">
         <AuthProvider>
+          <SavedProvidersProvider>
           <NavbarProvider>
             <Navbar />
             <main className="flex-grow">{children}</main>
             <Footer />
             <GlobalUnifiedAuthModal />
           </NavbarProvider>
+          </SavedProvidersProvider>
         </AuthProvider>
       </body>
     </html>
