@@ -79,7 +79,7 @@ export default function IntentCapture({
       {/* Step 0: Who needs care? */}
       {intentStep === 0 && (
         <>
-          <p className="text-base font-semibold text-gray-700 mt-1 mb-2.5">
+          <p className="text-base font-semibold text-gray-700 mb-2.5">
             Who needs care?
           </p>
           <div className="flex gap-2 mb-4">
@@ -98,7 +98,8 @@ export default function IntentCapture({
       {/* Step 1: What kind of help? */}
       {intentStep === 1 && (
         <>
-          <p className="text-base font-semibold text-gray-700 mt-1 mb-2.5">
+          <div className="mt-3" />
+          <p className="text-base font-semibold text-gray-700 mb-2.5">
             What kind of help are you looking for?
           </p>
           <div className="flex flex-col gap-1.5 mb-4">
@@ -117,7 +118,8 @@ export default function IntentCapture({
       {/* Step 2: How soon + anything else? */}
       {intentStep === 2 && (
         <>
-          <p className="text-base font-semibold text-gray-700 mt-1 mb-2.5">
+          <div className="mt-3" />
+          <p className="text-base font-semibold text-gray-700 mb-2.5">
             How soon do you need care?
           </p>
           <div className="grid grid-cols-2 gap-1.5 mb-3.5">
