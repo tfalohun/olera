@@ -132,15 +132,15 @@ export default function IntentCapture({
           </div>
 
           <p className="text-base font-semibold text-gray-700 mb-1">
-            Anything else the provider should know?{" "}
+            Additional details{" "}
             <span className="font-normal text-gray-400 italic">(optional)</span>
           </p>
           <textarea
             value={additionalNotes}
             onChange={(e) => onSetNotes(e.target.value)}
             maxLength={500}
-            placeholder="e.g., My mom needs help 3 mornings a week, mostly with getting ready and meals..."
-            className="w-full px-3 py-3 rounded-lg border border-gray-200 text-base text-gray-700 resize-none h-20 outline-none focus:border-primary-600 transition-colors mb-4 box-border"
+            placeholder="Type here..."
+            className="w-full px-3 py-3 rounded-xl border border-gray-200 text-base text-gray-700 resize-none h-20 outline-none focus:border-primary-600 transition-colors mb-4 box-border"
           />
         </>
       )}

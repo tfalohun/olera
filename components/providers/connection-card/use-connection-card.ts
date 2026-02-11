@@ -9,7 +9,6 @@ import { mapProviderCareTypes } from "./constants";
 import type {
   CardState,
   IntentStep,
-  IdentityStep,
   IntentData,
   IdentityData,
   CareRecipient,
@@ -18,6 +17,8 @@ import type {
   ContactPreference,
   ConnectionCardProps,
 } from "./types";
+
+const CONNECTION_INTENT_KEY = "olera_connection_intent";
 
 function generateSlug(name: string): string {
   const base = name
@@ -57,11 +58,11 @@ export function useConnectionCard(props: ConnectionCardProps) {
     useAuth();
   const savedProviders = useSavedProviders();
   const phoneRevealTriggered = useRef(false);
+  const connectionAuthTriggered = useRef(false);
 
   // ── State machine ──
   const [cardState, setCardState] = useState<CardState>("default");
   const [intentStep, setIntentStep] = useState<IntentStep>(0);
-  const [identityStep, setIdentityStep] = useState<IdentityStep>(0);
   const [intentData, setIntentData] = useState<IntentData>(INITIAL_INTENT);
   const [identityData, setIdentityData] =
     useState<IdentityData>(INITIAL_IDENTITY);
@@ -77,6 +78,24 @@ export function useConnectionCard(props: ConnectionCardProps) {
 
   // ── Derived ──
   const availableCareTypes = mapProviderCareTypes(providerCareTypes);
+
+  // ── Pre-fill identity from auth data ──
+  const prefillIdentityFromAuth = useCallback(() => {
+    if (!user || !account) return;
+
+    const displayName = account.display_name || "";
+    const nameParts = displayName.trim().split(/\s+/);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    setIdentityData((prev) => ({
+      ...prev,
+      email: user.email || prev.email,
+      firstName: firstName || prev.firstName,
+      lastName: lastName || prev.lastName,
+      phone: activeProfile?.phone || prev.phone,
+    }));
+  }, [user, account, activeProfile]);
 
   // ── Check for inactive provider ──
   useEffect(() => {
@@ -108,7 +127,7 @@ export function useConnectionCard(props: ConnectionCardProps) {
     checkExisting();
   }, [user, activeProfile, providerId]);
 
-  // ── Handle deferred actions after auth ──
+  // ── Handle deferred phone reveal after auth ──
   useEffect(() => {
     if (phoneRevealTriggered.current) return;
     if (!user) return;
@@ -124,6 +143,38 @@ export function useConnectionCard(props: ConnectionCardProps) {
     }
   }, [user, providerId]);
 
+  // ── Handle deferred connection request after auth ──
+  useEffect(() => {
+    if (connectionAuthTriggered.current) return;
+    if (!user || !account) return;
+
+    const deferred = getDeferredAction();
+    if (
+      deferred?.action === "connection_request" &&
+      deferred?.targetProfileId === providerId
+    ) {
+      connectionAuthTriggered.current = true;
+      clearDeferredAction();
+
+      // Restore intent data from sessionStorage (needed for Google OAuth redirect)
+      try {
+        const savedIntent = sessionStorage.getItem(CONNECTION_INTENT_KEY);
+        if (savedIntent) {
+          setIntentData(JSON.parse(savedIntent));
+          sessionStorage.removeItem(CONNECTION_INTENT_KEY);
+        }
+      } catch {
+        // Intent data may still be in React state if auth was overlay-based
+      }
+
+      // Pre-fill identity from newly authenticated user
+      prefillIdentityFromAuth();
+
+      // Advance to contact preference step
+      setCardState("identity");
+    }
+  }, [user, account, providerId, prefillIdentityFromAuth]);
+
   // ── Navigation helpers ──
   const startFlow = useCallback(() => {
     setCardState("intent");
@@ -133,7 +184,6 @@ export function useConnectionCard(props: ConnectionCardProps) {
   const resetFlow = useCallback(() => {
     setCardState("default");
     setIntentStep(0);
-    setIdentityStep(0);
     setIntentData(INITIAL_INTENT);
     setIdentityData(INITIAL_IDENTITY);
     setError("");
@@ -141,16 +191,14 @@ export function useConnectionCard(props: ConnectionCardProps) {
 
   const goToNextIntentStep = useCallback(() => {
     if (intentStep === 0 && intentData.careRecipient) {
-      // If provider has only 1 care type, auto-select and skip step 1
+      // Pre-select if only 1 care type, but still show step 1 for confirmation
       if (availableCareTypes.length === 1) {
         setIntentData((prev) => ({
           ...prev,
           careType: availableCareTypes[0],
         }));
-        setIntentStep(2);
-      } else {
-        setIntentStep(1);
       }
+      setIntentStep(1);
     } else if (intentStep === 1 && intentData.careType) {
       setIntentStep(2);
     } else if (intentStep === 2 && intentData.urgency) {
@@ -169,46 +217,64 @@ export function useConnectionCard(props: ConnectionCardProps) {
         resetFlow();
         return;
       }
-      // Otherwise proceed to identity capture
-      setCardState("identity");
-      setIdentityStep(0);
+
+      // If user is logged in, pre-fill and go to contact preference
+      if (user) {
+        prefillIdentityFromAuth();
+        setCardState("identity");
+      } else {
+        // Save intent data for OAuth resilience, then trigger auth
+        try {
+          sessionStorage.setItem(
+            CONNECTION_INTENT_KEY,
+            JSON.stringify(intentData)
+          );
+        } catch {
+          // sessionStorage may fail in private browsing — state survives for overlay auth
+        }
+        openAuth({
+          defaultMode: "sign-up",
+          intent: "family",
+          deferred: {
+            action: "connection_request",
+            targetProfileId: providerId,
+            returnUrl: `/provider/${providerSlug}`,
+          },
+        });
+      }
     }
-  }, [intentStep, intentData, availableCareTypes, resetFlow]);
+  }, [
+    intentStep,
+    intentData,
+    availableCareTypes,
+    resetFlow,
+    user,
+    saved,
+    savedProviders,
+    providerId,
+    providerSlug,
+    providerName,
+    providerCareTypes,
+    prefillIdentityFromAuth,
+    openAuth,
+  ]);
 
   const goBackIntentStep = useCallback(() => {
     if (intentStep === 0) {
       resetFlow();
-    } else if (intentStep === 2 && availableCareTypes.length === 1) {
-      // Skip back over step 1 if it was auto-skipped
-      setIntentStep(0);
     } else {
       setIntentStep((prev) => (prev - 1) as IntentStep);
     }
-  }, [intentStep, availableCareTypes, resetFlow]);
+  }, [intentStep, resetFlow]);
 
   const editIntentStep = useCallback((step: IntentStep) => {
     setIntentStep(step);
     setCardState("intent");
   }, []);
 
-  const goToNextIdentityStep = useCallback(() => {
-    if (identityStep === 0) {
-      setIdentityStep(1);
-    }
-  }, [identityStep]);
-
-  const goBackIdentityStep = useCallback(() => {
-    if (identityStep === 0) {
-      // Back from identity sub-step 0 → intent step 2
-      setCardState("intent");
-      setIntentStep(2);
-    } else {
-      setIdentityStep(0);
-    }
-  }, [identityStep]);
-
-  const editIdentityStep = useCallback((step: IdentityStep) => {
-    setIdentityStep(step);
+  const goBackFromIdentity = useCallback(() => {
+    setCardState("intent");
+    setIntentStep(2);
   }, []);
 
   // ── Field setters ──
@@ -226,18 +292,6 @@ export function useConnectionCard(props: ConnectionCardProps) {
 
   const setNotes = useCallback((val: string) => {
     setIntentData((prev) => ({ ...prev, additionalNotes: val }));
-  }, []);
-
-  const setEmail = useCallback((val: string) => {
-    setIdentityData((prev) => ({ ...prev, email: val }));
-  }, []);
-
-  const setFirstName = useCallback((val: string) => {
-    setIdentityData((prev) => ({ ...prev, firstName: val }));
-  }, []);
-
-  const setLastName = useCallback((val: string) => {
-    setIdentityData((prev) => ({ ...prev, lastName: val }));
   }, []);
 
   const setContactPref = useCallback((val: ContactPreference) => {
@@ -280,113 +334,108 @@ export function useConnectionCard(props: ConnectionCardProps) {
     setError("");
 
     try {
-      // If user is logged in, persist to database
-      if (user && account && isSupabaseConfigured()) {
-        const supabase = createClient();
+      if (!user || !account || !isSupabaseConfigured()) {
+        throw new Error("Please sign in to send a connection request.");
+      }
 
-        // Ensure we have a family profile
-        let fromProfileId: string;
+      const supabase = createClient();
 
-        if (activeProfile?.type === "family") {
-          fromProfileId = activeProfile.id;
+      // Ensure we have a family profile
+      let fromProfileId: string;
+
+      if (activeProfile?.type === "family") {
+        fromProfileId = activeProfile.id;
+      } else {
+        // Check for existing family profile
+        const { data: existingFamily } = await supabase
+          .from("business_profiles")
+          .select("id")
+          .eq("account_id", account.id)
+          .eq("type", "family")
+          .limit(1)
+          .single();
+
+        if (existingFamily) {
+          fromProfileId = existingFamily.id;
         } else {
-          // Check for existing family profile
-          const { data: existingFamily } = await supabase
+          // Create a minimal family profile
+          const displayName =
+            identityData.firstName && identityData.lastName
+              ? `${identityData.firstName} ${identityData.lastName}`
+              : account.display_name ||
+                user.email?.split("@")[0] ||
+                "Family";
+          const slug = generateSlug(displayName);
+
+          const { data: newProfile, error: profileError } = await supabase
             .from("business_profiles")
+            .insert({
+              account_id: account.id,
+              slug,
+              type: "family",
+              category: null,
+              display_name: displayName,
+              care_types: [],
+              claim_state: "claimed",
+              verification_state: "unverified",
+              source: "user_created",
+              metadata: {},
+            })
             .select("id")
-            .eq("account_id", account.id)
-            .eq("type", "family")
-            .limit(1)
             .single();
 
-          if (existingFamily) {
-            fromProfileId = existingFamily.id;
-          } else {
-            // Create a minimal family profile
-            const displayName =
-              identityData.firstName && identityData.lastName
-                ? `${identityData.firstName} ${identityData.lastName}`
-                : account.display_name ||
-                  user.email?.split("@")[0] ||
-                  "Family";
-            const slug = generateSlug(displayName);
+          if (profileError) throw new Error(profileError.message);
+          fromProfileId = newProfile.id;
 
-            const { data: newProfile, error: profileError } = await supabase
-              .from("business_profiles")
-              .insert({
-                account_id: account.id,
-                slug,
-                type: "family",
-                category: null,
-                display_name: displayName,
-                care_types: [],
-                claim_state: "claimed",
-                verification_state: "unverified",
-                source: "user_created",
-                metadata: {},
+          if (!activeProfile) {
+            await supabase
+              .from("accounts")
+              .update({
+                active_profile_id: newProfile.id,
+                onboarding_completed: true,
               })
-              .select("id")
-              .single();
-
-            if (profileError) throw new Error(profileError.message);
-            fromProfileId = newProfile.id;
-
-            if (!activeProfile) {
-              await supabase
-                .from("accounts")
-                .update({
-                  active_profile_id: newProfile.id,
-                  onboarding_completed: true,
-                })
-                .eq("id", account.id);
-              await refreshAccountData();
-            }
+              .eq("id", account.id);
+            await refreshAccountData();
           }
-        }
-
-        // Insert connection request
-        const messagePayload = JSON.stringify({
-          care_recipient: intentData.careRecipient,
-          care_type: intentData.careType,
-          care_type_other: intentData.careTypeOtherText || null,
-          urgency: intentData.urgency,
-          additional_notes: intentData.additionalNotes || null,
-          contact_preference: identityData.contactPreference,
-          seeker_phone: identityData.phone || null,
-          seeker_email: identityData.email,
-          seeker_first_name: identityData.firstName,
-          seeker_last_name: identityData.lastName,
-        });
-
-        const { error: insertError } = await supabase
-          .from("connections")
-          .insert({
-            from_profile_id: fromProfileId,
-            to_profile_id: providerId,
-            type: "inquiry",
-            status: "pending",
-            message: messagePayload,
-          });
-
-        if (insertError) {
-          if (
-            insertError.code === "23505" ||
-            insertError.message.includes("duplicate") ||
-            insertError.message.includes("unique")
-          ) {
-            setCardState("pending");
-            setPendingRequestDate(new Date().toISOString());
-            return;
-          }
-          throw new Error(insertError.message);
         }
       }
 
-      // AUTH_INTEGRATION_POINT:
-      // For anonymous users (pre-auth), the request data is captured in
-      // component state but not persisted to the database. When auth is
-      // integrated, this path will trigger authentication first, then
-      // persist the connection request.
+      // Insert connection request
+      const messagePayload = JSON.stringify({
+        care_recipient: intentData.careRecipient,
+        care_type: intentData.careType,
+        care_type_other: intentData.careTypeOtherText || null,
+        urgency: intentData.urgency,
+        additional_notes: intentData.additionalNotes || null,
+        contact_preference: identityData.contactPreference,
+        seeker_phone: identityData.phone || activeProfile?.phone || null,
+        seeker_email: identityData.email || user.email || "",
+        seeker_first_name: identityData.firstName,
+        seeker_last_name: identityData.lastName,
+      });
+
+      const { error: insertError } = await supabase
+        .from("connections")
+        .insert({
+          from_profile_id: fromProfileId,
+          to_profile_id: providerId,
+          type: "inquiry",
+          status: "pending",
+          message: messagePayload,
+        });
+
+      if (insertError) {
+        if (
+          insertError.code === "23505" ||
+          insertError.message.includes("duplicate") ||
+          insertError.message.includes("unique")
+        ) {
+          setCardState("pending");
+          setPendingRequestDate(new Date().toISOString());
+          return;
+        }
+        throw new Error(insertError.message);
+      }
 
       // Transition to confirmation
       setCardState("confirmation");
@@ -416,7 +465,6 @@ export function useConnectionCard(props: ConnectionCardProps) {
     // State
     cardState,
     intentStep,
-    identityStep,
     intentData,
     identityData,
     phoneRevealed,
@@ -432,18 +480,13 @@ export function useConnectionCard(props: ConnectionCardProps) {
     goToNextIntentStep,
     goBackIntentStep,
     editIntentStep,
-    goToNextIdentityStep,
-    goBackIdentityStep,
-    editIdentityStep,
+    goBackFromIdentity,
 
     // Field setters
     setRecipient,
     setCareType,
     setUrgency,
     setNotes,
-    setEmail,
-    setFirstName,
-    setLastName,
     setContactPref,
     setPhone,
     revealPhone,

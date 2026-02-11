@@ -64,7 +64,7 @@ export function mapProviderCareTypes(
 // ============================================================
 
 export const URGENCY_OPTIONS: { label: string; value: UrgencyValue }[] = [
-  { label: "As soon as possible", value: "asap" },
+  { label: "Within a week", value: "asap" },
   { label: "Within a month", value: "within_month" },
   { label: "In a few months", value: "few_months" },
   { label: "Just researching", value: "researching" },
@@ -99,7 +99,7 @@ export const RECIPIENT_LABELS: Record<string, string> = {
 };
 
 export const URGENCY_LABELS: Record<string, string> = {
-  asap: "As soon as possible",
+  asap: "Within a week",
   within_month: "Within a month",
   few_months: "In a few months",
   researching: "Just researching",

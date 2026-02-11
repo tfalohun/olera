@@ -5,15 +5,13 @@
 export type CardState =
   | "default" // State 1: All users on landing
   | "intent" // State 2: Intent capture (steps 1-3)
-  | "identity" // State 2 continued: email + profile basics
+  | "identity" // State 2 continued: contact preference + phone (after auth)
   | "returning" // State 3: Returning user (not reachable until auth)
   | "confirmation" // State 4: Request sent
   | "pending" // State 5: Existing request
   | "inactive"; // State 6: Provider not accepting
 
 export type IntentStep = 0 | 1 | 2;
-
-export type IdentityStep = 0 | 1; // 0 = email+name, 1 = contact+phone
 
 export type CareRecipient = "self" | "loved_one";
 
