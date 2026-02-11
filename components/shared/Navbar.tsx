@@ -24,6 +24,8 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const { visible: navbarVisible } = useNavbar();
   const { savedCount } = useSavedProviders();
+  const [heartPulse, setHeartPulse] = useState(false);
+  const prevSavedCount = useRef(savedCount);
 
   // Show auth pill as soon as we know a user session exists.
   // Full dropdown content requires account data.
@@ -93,6 +95,16 @@ export default function Navbar() {
     setIsUserMenuOpen(false);
     setIsFindCareOpen(false);
   }, [pathname]);
+
+  // Pulse heart icon when a new provider is saved
+  useEffect(() => {
+    if (savedCount > prevSavedCount.current) {
+      setHeartPulse(true);
+      const timer = setTimeout(() => setHeartPulse(false), 600);
+      return () => clearTimeout(timer);
+    }
+    prevSavedCount.current = savedCount;
+  }, [savedCount]);
 
   return (
     <>
@@ -180,14 +192,17 @@ export default function Navbar() {
                   className="relative flex items-center justify-center w-[44px] min-h-[44px] border border-gray-200 rounded-full text-gray-500 hover:text-red-500 hover:shadow-md transition-all"
                   aria-label="Saved providers"
                 >
-                  <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <svg
+                    className={`w-[18px] h-[18px] transition-all duration-300 ${
+                      heartPulse ? "scale-125 text-red-500 fill-red-500" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
-                  {savedCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {savedCount}
-                    </span>
-                  )}
                 </Link>
 
                 {hasSession ? (
@@ -494,7 +509,7 @@ export default function Navbar() {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                       </svg>
-                      Saved{savedCount > 0 ? ` (${savedCount})` : ""}
+                      Saved
                     </Link>
 
                     <hr className="border-gray-100" />
