@@ -122,6 +122,7 @@ export default function ConnectionCard(props: ConnectionCardProps) {
             providerName={providerName}
             phone={phone}
             intentData={hook.intentData}
+            notificationEmail={hook.notificationEmail}
             onSend={hook.submitFromReturning}
             onEdit={hook.editFromReturning}
             submitting={hook.submitting}
