@@ -56,7 +56,7 @@ export function useSavedProviders() {
 }
 
 export function SavedProvidersProvider({ children }: { children: ReactNode }) {
-  const { user, activeProfile, openAuthModal } = useAuth();
+  const { user, activeProfile, openAuth } = useAuth();
 
   // Anonymous saves (from sessionStorage)
   const [anonSaves, setAnonSaves] = useState<SavedProviderEntry[]>([]);
@@ -273,14 +273,15 @@ export function SavedProvidersProvider({ children }: { children: ReactNode }) {
 
           if (!added) {
             // At limit — prompt auth
-            openAuthModal(
-              {
+            openAuth({
+              defaultMode: "sign-up",
+              intent: "family",
+              deferred: {
                 action: "save",
                 targetProfileId: provider.providerId,
                 returnUrl: typeof window !== "undefined" ? window.location.pathname : "/",
               },
-              "sign-up"
-            );
+            });
             return;
           }
 
@@ -288,7 +289,7 @@ export function SavedProvidersProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [user, activeProfile, dbSaveIds, anonSaves, openAuthModal]
+    [user, activeProfile, dbSaveIds, anonSaves, openAuth]
   );
 
   const savedCount = dbSaveIds.size + anonSaves.length;
