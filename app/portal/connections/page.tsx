@@ -101,10 +101,37 @@ export default function ConnectionsPage() {
         const { data: profileData } = await supabase
           .from("business_profiles")
           .select(
-            "id, display_name, city, state, type, email, phone, slug, image_url"
+            "id, display_name, city, state, type, email, phone, slug, image_url, source_provider_id"
           )
           .in("id", Array.from(profileIds));
         profiles = (profileData as Profile[]) || [];
+
+        // For profiles missing image_url, try to get image from iOS olera-providers
+        const missingImageIds = profiles
+          .filter((p) => !p.image_url && p.source_provider_id)
+          .map((p) => p.source_provider_id as string);
+
+        if (missingImageIds.length > 0) {
+          const { data: iosProviders } = await supabase
+            .from("olera-providers")
+            .select("provider_id, provider_logo, provider_images")
+            .in("provider_id", missingImageIds);
+
+          if (iosProviders?.length) {
+            const iosMap = new Map(
+              iosProviders.map((p: { provider_id: string; provider_logo: string | null; provider_images: string | null }) => [
+                p.provider_id,
+                p.provider_logo || (p.provider_images?.split(" | ")[0]) || null,
+              ])
+            );
+            profiles = profiles.map((p) => {
+              if (!p.image_url && p.source_provider_id && iosMap.has(p.source_provider_id)) {
+                return { ...p, image_url: iosMap.get(p.source_provider_id) || null };
+              }
+              return p;
+            });
+          }
+        }
       }
 
       const profileMap = new Map(profiles.map((p) => [p.id, p]));
@@ -384,23 +411,26 @@ function ConnectionCard({
   const initial = otherName.charAt(0).toUpperCase();
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-sm hover:border-gray-300 transition-all duration-150">
+    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200 group">
       <button
         type="button"
         onClick={() => onSelect(connection.id)}
-        className="block w-full text-left px-5 py-4 cursor-pointer bg-transparent border-none"
+        className="block w-full text-left px-4 py-3.5 cursor-pointer bg-transparent border-none"
       >
-        <div className="flex items-start gap-4">
-          {/* Avatar */}
+        <div className="flex items-center gap-3.5">
+          {/* Provider image */}
           <div className="shrink-0">
             {imageUrl && !shouldBlur ? (
               <img
                 src={imageUrl}
                 alt={otherName}
-                className="w-11 h-11 rounded-full object-cover"
+                className="w-12 h-12 rounded-xl object-cover"
               />
             ) : (
-              <div className="w-11 h-11 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-base font-bold">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold text-white"
+                style={{ background: shouldBlur ? "#9ca3af" : avatarGradient(otherName) }}
+              >
                 {shouldBlur ? "?" : initial}
               </div>
             )}
@@ -408,47 +438,24 @@ function ConnectionCard({
 
           {/* Content */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2 mb-0.5">
-              <h3 className="text-base font-semibold text-gray-900 truncate">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-semibold text-gray-900 truncate leading-snug">
                 {shouldBlur ? blurName(otherName) : otherName}
               </h3>
               <Badge variant={badge.variant}>{badge.label}</Badge>
             </div>
 
-            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-              {otherLocation && !shouldBlur && (
-                <span>{otherLocation}</span>
-              )}
-              {otherLocation && !shouldBlur && careType && (
-                <span className="text-gray-300">&middot;</span>
-              )}
-              {careType && !shouldBlur && (
-                <span>{careType}</span>
-              )}
-              {shouldBlur && <span>***</span>}
-            </div>
+            <p className="text-sm text-gray-500 truncate mt-0.5">
+              {shouldBlur ? "***" : [otherLocation, careType].filter(Boolean).join(" · ")}
+            </p>
 
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <span>{typeIcon} {typeLabel}</span>
-              <span className="text-gray-300">&middot;</span>
-              <span>{createdAt}</span>
-            </div>
-
-            {noteText && (
-              <p className="mt-2 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2 line-clamp-2">
-                {shouldBlur ? blurText(noteText) : noteText}
-              </p>
-            )}
-
-            {shouldBlur && (
-              <p className="mt-2 text-xs text-warm-600 font-medium">
-                Upgrade to see full details
-              </p>
-            )}
+            <p className="text-xs text-gray-400 mt-0.5">
+              {typeIcon} {typeLabel} · {createdAt}
+            </p>
           </div>
 
           {/* Chevron */}
-          <svg className="w-5 h-5 text-gray-300 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4.5 h-4.5 text-gray-300 shrink-0 group-hover:text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </div>
@@ -522,8 +529,21 @@ function blurName(name: string): string {
   return parts.map((p) => p.charAt(0) + "***").join(" ");
 }
 
-function blurText(text: string): string {
-  if (!text) return "";
-  if (text.length <= 20) return "*".repeat(text.length);
-  return text.substring(0, 20) + "...";
+/** Deterministic gradient for fallback avatars based on name */
+function avatarGradient(name: string): string {
+  const gradients = [
+    "linear-gradient(135deg, #0ea5e9, #6366f1)",
+    "linear-gradient(135deg, #14b8a6, #0ea5e9)",
+    "linear-gradient(135deg, #8b5cf6, #ec4899)",
+    "linear-gradient(135deg, #f59e0b, #ef4444)",
+    "linear-gradient(135deg, #10b981, #14b8a6)",
+    "linear-gradient(135deg, #6366f1, #a855f7)",
+    "linear-gradient(135deg, #ec4899, #f43f5e)",
+    "linear-gradient(135deg, #0891b2, #2dd4bf)",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return gradients[Math.abs(hash) % gradients.length];
 }

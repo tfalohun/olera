@@ -7,7 +7,6 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
 import { useAuth } from "@/components/auth/AuthProvider";
 import type { Connection, ConnectionStatus, Profile } from "@/lib/types";
-import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import UpgradePrompt from "@/components/providers/UpgradePrompt";
 
@@ -48,6 +47,32 @@ function parseMessage(message: string | null): {
   } catch {
     return null;
   }
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
+  pending: { label: "Pending", color: "text-amber-700", bg: "bg-amber-50", dot: "bg-amber-400" },
+  accepted: { label: "Connected", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
+  declined: { label: "Declined", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" },
+  archived: { label: "Archived", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" },
+};
+
+/** Deterministic gradient for fallback avatars */
+function avatarGradient(name: string): string {
+  const gradients = [
+    "linear-gradient(135deg, #0ea5e9, #6366f1)",
+    "linear-gradient(135deg, #14b8a6, #0ea5e9)",
+    "linear-gradient(135deg, #8b5cf6, #ec4899)",
+    "linear-gradient(135deg, #f59e0b, #ef4444)",
+    "linear-gradient(135deg, #10b981, #14b8a6)",
+    "linear-gradient(135deg, #6366f1, #a855f7)",
+    "linear-gradient(135deg, #ec4899, #f43f5e)",
+    "linear-gradient(135deg, #0891b2, #2dd4bf)",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return gradients[Math.abs(hash) % gradients.length];
 }
 
 export default function ConnectionDrawer({
@@ -120,16 +145,43 @@ export default function ConnectionDrawer({
       }
 
       const profileIds = [conn.from_profile_id, conn.to_profile_id];
-      const { data: profiles } = await supabase
+      const { data: profileData } = await supabase
         .from("business_profiles")
         .select(
-          "id, display_name, description, image_url, city, state, type, email, phone, website, slug, care_types"
+          "id, display_name, description, image_url, city, state, type, email, phone, website, slug, care_types, category, source_provider_id"
         )
         .in("id", profileIds);
 
-      const profileMap = new Map(
-        ((profiles as Profile[]) || []).map((p) => [p.id, p])
-      );
+      let profiles = (profileData as Profile[]) || [];
+
+      // For profiles missing image_url, try to get image from iOS olera-providers
+      const missingImageIds = profiles
+        .filter((p) => !p.image_url && p.source_provider_id)
+        .map((p) => p.source_provider_id as string);
+
+      if (missingImageIds.length > 0) {
+        const { data: iosProviders } = await supabase
+          .from("olera-providers")
+          .select("provider_id, provider_logo, provider_images")
+          .in("provider_id", missingImageIds);
+
+        if (iosProviders?.length) {
+          const iosMap = new Map(
+            iosProviders.map((p: { provider_id: string; provider_logo: string | null; provider_images: string | null }) => [
+              p.provider_id,
+              p.provider_logo || (p.provider_images?.split(" | ")[0]) || null,
+            ])
+          );
+          profiles = profiles.map((p) => {
+            if (!p.image_url && p.source_provider_id && iosMap.has(p.source_provider_id)) {
+              return { ...p, image_url: iosMap.get(p.source_provider_id) || null };
+            }
+            return p;
+          });
+        }
+      }
+
+      const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
       setConnection({
         ...conn,
@@ -205,20 +257,7 @@ export default function ConnectionDrawer({
     : null;
   const shouldBlur = isProvider && !hasFullAccess && isInbound;
 
-  const statusBadge: Record<
-    string,
-    { variant: "default" | "pending" | "verified" | "trial"; label: string }
-  > = {
-    pending: { variant: "pending", label: "Pending" },
-    accepted: { variant: "verified", label: "Accepted" },
-    declined: { variant: "default", label: "Declined" },
-    archived: { variant: "default", label: "Archived" },
-  };
-
-  const badge = connection
-    ? statusBadge[connection.status] || statusBadge.pending
-    : statusBadge.pending;
-
+  const status = STATUS_CONFIG[connection?.status || "pending"] || STATUS_CONFIG.pending;
   const otherName = otherProfile?.display_name || "Unknown";
   const otherLocation = otherProfile
     ? [otherProfile.city, otherProfile.state].filter(Boolean).join(", ")
@@ -233,6 +272,24 @@ export default function ConnectionDrawer({
       : `/profile/${otherProfile.id}`
     : "#";
 
+  const categoryLabel = otherProfile?.category
+    ? otherProfile.category
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c: string) => c.toUpperCase())
+    : otherProfile?.type === "organization"
+    ? "Organization"
+    : otherProfile?.type === "caregiver"
+    ? "Caregiver"
+    : "Family";
+
+  const createdDate = connection
+    ? new Date(connection.created_at).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+
   const drawerContent = (
     <div
       className={`fixed inset-0 z-[60] transition-opacity duration-300 ${
@@ -244,96 +301,100 @@ export default function ConnectionDrawer({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/25 backdrop-blur-[2px]"
         onClick={() => onCloseRef.current()}
       />
 
       {/* Slide-out drawer */}
       <div
         ref={panelRef}
-        className={`absolute right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
+        className={`absolute right-0 top-0 h-full w-full max-w-[480px] bg-white shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* Header */}
-        <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Connection Details
-          </h2>
-          <button
-            onClick={() => onCloseRef.current()}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            aria-label="Close"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
+        {/* Close button — floating */}
+        <button
+          onClick={() => onCloseRef.current()}
+          className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-gray-400 hover:text-gray-600 hover:bg-white transition-all shadow-sm border border-gray-100"
+          aria-label="Close"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
 
         {/* Body */}
-        <div className="px-6 py-6">
-          {loading && (
-            <div className="text-center py-12">
-              <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full mx-auto" />
-            </div>
-          )}
+        {loading && (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin w-7 h-7 border-[3px] border-primary-600 border-t-transparent rounded-full" />
+          </div>
+        )}
 
-          {error && (
-            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">
+        {error && !connection && (
+          <div className="px-6 py-8">
+            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-sm">
               {error}
             </div>
-          )}
+          </div>
+        )}
 
-          {connection && !loading && (
-            <>
-              {/* Provider header */}
-              <div className="flex items-start gap-4 mb-5">
-                {imageUrl && !shouldBlur ? (
-                  <img
-                    src={imageUrl}
-                    alt={otherName}
-                    className="w-14 h-14 rounded-full object-cover shrink-0"
-                  />
-                ) : (
-                  <div className="w-14 h-14 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-xl font-bold shrink-0">
-                    {shouldBlur ? "?" : initial}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      {shouldBlur ? blurName(otherName) : otherName}
-                    </h3>
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
-                  </div>
-                  {otherLocation && !shouldBlur && (
-                    <p className="text-sm text-gray-500">{otherLocation}</p>
-                  )}
-                  {otherProfile && (
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {otherProfile.type === "organization"
-                        ? "Organization"
-                        : otherProfile.type === "caregiver"
-                        ? "Caregiver"
-                        : "Family"}
-                    </p>
+        {connection && !loading && (
+          <>
+            {/* ── Provider Profile Header ── */}
+            <div className="px-6 pt-6 pb-5">
+              <div className="flex items-start gap-4">
+                {/* Avatar */}
+                <div className="shrink-0">
+                  {imageUrl && !shouldBlur ? (
+                    <img
+                      src={imageUrl}
+                      alt={otherName}
+                      className="w-16 h-16 rounded-2xl object-cover shadow-sm"
+                    />
+                  ) : (
+                    <div
+                      className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shadow-sm"
+                      style={{ background: shouldBlur ? "#9ca3af" : avatarGradient(otherName) }}
+                    >
+                      {shouldBlur ? "?" : initial}
+                    </div>
                   )}
                 </div>
-              </div>
 
-              {/* Status + date */}
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-5">
+                {/* Name + meta */}
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <h2 className="text-lg font-bold text-gray-900 leading-snug">
+                    {shouldBlur ? blurName(otherName) : otherName}
+                  </h2>
+                  {!shouldBlur && (
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {[categoryLabel, otherLocation].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  {/* Status pill */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${status.bg} ${status.color}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                      {status.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="h-px bg-gray-100 mx-6" />
+
+            <div className="px-6 py-5 space-y-5">
+              {/* ── Connection info bar ── */}
+              <div className="flex items-center gap-3 text-sm text-gray-500">
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span>{createdDate}</span>
+                </div>
+                <span className="text-gray-300">·</span>
                 <span>
                   {connection.type === "inquiry"
                     ? "Inquiry"
@@ -342,187 +403,204 @@ export default function ConnectionDrawer({
                     : "Application"}{" "}
                   {isInbound ? "received" : "sent"}
                 </span>
-                <span className="text-gray-300">&middot;</span>
-                <span>
-                  {new Date(connection.created_at).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
               </div>
 
-              {/* Your request details */}
+              {/* ── Request Details ── */}
               {parsedMsg && !shouldBlur && (
-                <div className="bg-gray-50 rounded-xl p-4 mb-5">
-                  <p className="text-sm font-medium text-gray-700 mb-3">
-                    {isInbound ? "Their request" : "Your request"}
-                  </p>
-                  <div className="space-y-2">
+                <div className="rounded-xl border border-gray-100 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {isInbound ? "Their Request" : "Your Request"}
+                    </p>
+                  </div>
+                  <div className="px-4 py-3 space-y-3">
                     {parsedMsg.careRecipient && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-400 w-24 shrink-0">
-                          Who
-                        </span>
-                        <span className="text-gray-700">
-                          {parsedMsg.careRecipient}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">Care for</p>
+                          <p className="text-sm font-medium text-gray-800">{parsedMsg.careRecipient}</p>
+                        </div>
                       </div>
                     )}
                     {parsedMsg.careType && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-400 w-24 shrink-0">
-                          Care type
-                        </span>
-                        <span className="text-gray-700">
-                          {parsedMsg.careType}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">Care type</p>
+                          <p className="text-sm font-medium text-gray-800">{parsedMsg.careType}</p>
+                        </div>
                       </div>
                     )}
                     {parsedMsg.urgency && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-400 w-24 shrink-0">
-                          Timeline
-                        </span>
-                        <span className="text-gray-700">
-                          {parsedMsg.urgency}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">Timeline</p>
+                          <p className="text-sm font-medium text-gray-800">{parsedMsg.urgency}</p>
+                        </div>
                       </div>
                     )}
                     {parsedMsg.notes && (
-                      <div className="flex items-start gap-2 text-sm pt-1">
-                        <span className="text-gray-400 w-24 shrink-0">
-                          Notes
-                        </span>
-                        <span className="text-gray-700">
-                          {parsedMsg.notes}
-                        </span>
+                      <div className="flex items-start gap-3 pt-1">
+                        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">Notes</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">{parsedMsg.notes}</p>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Care types */}
+              {/* ── Care Type Tags ── */}
               {otherProfile &&
                 !shouldBlur &&
                 otherProfile.care_types.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-5">
-                    {otherProfile.care_types.map((type) => (
-                      <span
-                        key={type}
-                        className="bg-primary-50 text-primary-700 text-xs px-3 py-1 rounded-full"
-                      >
-                        {type}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-              {/* Action buttons */}
-              {isInbound &&
-                hasFullAccess &&
-                connection.status === "pending" && (
-                  <div className="flex gap-3 mb-5">
-                    <Button
-                      onClick={() => handleStatusUpdate("accepted")}
-                      loading={responding}
-                    >
-                      Accept
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleStatusUpdate("declined")}
-                      loading={responding}
-                    >
-                      Decline
-                    </Button>
-                  </div>
-                )}
-
-              {/* Next steps for accepted */}
-              {connection.status === "accepted" &&
-                otherProfile &&
-                !shouldBlur && (
-                  <div className="bg-primary-50 rounded-xl p-5 mb-5">
-                    <h3 className="text-sm font-semibold text-primary-900 mb-3">
-                      Next Steps
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {otherProfile.email && (
-                        <a
-                          href={`mailto:${otherProfile.email}?subject=${encodeURIComponent(`Schedule a meeting — ${otherProfile.display_name}`)}`}
-                          className="inline-flex items-center gap-1.5 bg-primary-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      Services
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {otherProfile.care_types.map((type) => (
+                        <span
+                          key={type}
+                          className="bg-gray-100 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-lg"
                         >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                          Schedule
-                        </a>
-                      )}
-                      {otherProfile.phone && (
-                        <a
-                          href={`tel:${otherProfile.phone}`}
-                          className="inline-flex items-center gap-1.5 text-primary-700 text-sm font-medium px-3 py-2 rounded-lg border border-primary-200 hover:bg-primary-100 transition-colors"
-                        >
-                          Call
-                        </a>
-                      )}
-                      {otherProfile.email && (
-                        <a
-                          href={`mailto:${otherProfile.email}`}
-                          className="inline-flex items-center gap-1.5 text-primary-700 text-sm font-medium px-3 py-2 rounded-lg border border-primary-200 hover:bg-primary-100 transition-colors"
-                        >
-                          Email
-                        </a>
-                      )}
+                          {type}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
 
-              {shouldBlur && (
-                <div className="mb-5">
-                  <UpgradePrompt context="view full details and respond" />
+              {/* ── Provider Actions — Pending Inbound ── */}
+              {isInbound && hasFullAccess && connection.status === "pending" && (
+                <div className="flex gap-3 pt-1">
+                  <Button
+                    onClick={() => handleStatusUpdate("accepted")}
+                    loading={responding}
+                    className="flex-1"
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleStatusUpdate("declined")}
+                    loading={responding}
+                    className="flex-1"
+                  >
+                    Decline
+                  </Button>
                 </div>
               )}
 
-              {/* View profile link */}
+              {/* ── Next Steps — Accepted ── */}
+              {connection.status === "accepted" && otherProfile && !shouldBlur && (
+                <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                  <p className="text-sm font-semibold text-gray-800 mb-3">
+                    Next steps
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {otherProfile.email && (
+                      <a
+                        href={`mailto:${otherProfile.email}?subject=${encodeURIComponent(`Scheduling a visit — ${otherProfile.display_name}`)}`}
+                        className="inline-flex items-center gap-1.5 bg-primary-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Schedule a Visit
+                      </a>
+                    )}
+                    {otherProfile.phone && (
+                      <a
+                        href={`tel:${otherProfile.phone}`}
+                        className="inline-flex items-center gap-1.5 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        Call
+                      </a>
+                    )}
+                    {otherProfile.email && (
+                      <a
+                        href={`mailto:${otherProfile.email}`}
+                        className="inline-flex items-center gap-1.5 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Email
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Upgrade prompt for blurred content ── */}
+              {shouldBlur && (
+                <UpgradePrompt context="view full details and respond" />
+              )}
+
+              {/* ── View Profile Link ── */}
               {otherProfile && !shouldBlur && (
                 <Link
                   href={profileHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-primary-600 hover:text-primary-500 text-sm font-medium transition-colors"
+                  className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all group"
                 >
-                  View full profile
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
+                  <div className="flex items-center gap-3">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={otherName}
+                        className="w-8 h-8 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
+                        style={{ background: avatarGradient(otherName) }}
+                      >
+                        {initial}
+                      </div>
+                    )}
+                    <span className="text-sm font-medium text-gray-700">View full profile</span>
+                  </div>
+                  <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </Link>
               )}
-            </>
-          )}
-        </div>
+
+              {/* ── Error ── */}
+              {error && (
+                <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
