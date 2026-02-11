@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
 import type { Connection, ConnectionStatus, Profile } from "@/lib/types";
 import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import UpgradePrompt from "@/components/providers/UpgradePrompt";
 import ConnectionDrawer from "@/components/portal/ConnectionDrawer";
@@ -30,7 +28,6 @@ export default function ConnectionsPage() {
   const { activeProfile, membership } = useAuth();
   const [connections, setConnections] = useState<ConnectionWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [responding, setResponding] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
@@ -158,39 +155,6 @@ export default function ConnectionsPage() {
     fetchConnections();
   }, [fetchConnections]);
 
-  const handleStatusUpdate = async (
-    connectionId: string,
-    newStatus: "accepted" | "declined" | "archived"
-  ) => {
-    if (!isSupabaseConfigured() || !activeProfile) return;
-
-    setResponding(connectionId);
-    try {
-      const supabase = createClient();
-      const { error: updateError } = await supabase
-        .from("connections")
-        .update({ status: newStatus })
-        .eq("id", connectionId)
-        .or(`to_profile_id.eq.${activeProfile.id},from_profile_id.eq.${activeProfile.id}`);
-
-      if (updateError) throw new Error(updateError.message);
-
-      setConnections((prev) =>
-        prev.map((c) =>
-          c.id === connectionId ? { ...c, status: newStatus } : c
-        )
-      );
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "message" in err
-          ? (err as { message: string }).message
-          : String(err);
-      setError(msg);
-    } finally {
-      setResponding(null);
-    }
-  };
-
   // Filter connections by tab
   const filtered =
     activeTab === "all"
@@ -283,7 +247,7 @@ export default function ConnectionsPage() {
           }
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-1.5">
           {filtered.map((connection) => (
             <ConnectionCard
               key={connection.id}
@@ -291,8 +255,6 @@ export default function ConnectionsPage() {
               activeProfileId={activeProfile?.id || ""}
               isProvider={!!isProvider}
               hasFullAccess={hasFullAccess}
-              responding={responding === connection.id}
-              onStatusUpdate={handleStatusUpdate}
               onSelect={setSelectedConnectionId}
             />
           ))}
@@ -321,52 +283,17 @@ export default function ConnectionsPage() {
   );
 }
 
-/** Parse the connection message JSON and extract human-readable notes */
-function parseConnectionMessage(message: string | null): string | null {
-  if (!message) return null;
-  try {
-    const parsed = JSON.parse(message);
-    // Show additional_notes if provided by the user
-    if (parsed.additional_notes && typeof parsed.additional_notes === "string") {
-      return parsed.additional_notes;
-    }
-    return null;
-  } catch {
-    // If it's not JSON (plain text message), return as-is
-    return message;
-  }
-}
-
-/** Extract care type from the connection message JSON */
-function parseCareType(message: string | null): string | null {
-  if (!message) return null;
-  try {
-    const parsed = JSON.parse(message);
-    const raw = parsed.care_type;
-    if (!raw || typeof raw !== "string") return null;
-    return raw
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c: string) => c.toUpperCase());
-  } catch {
-    return null;
-  }
-}
-
 function ConnectionCard({
   connection,
   activeProfileId,
   isProvider,
   hasFullAccess,
-  responding,
-  onStatusUpdate,
   onSelect,
 }: {
   connection: ConnectionWithProfile;
   activeProfileId: string;
   isProvider: boolean;
   hasFullAccess: boolean;
-  responding: boolean;
-  onStatusUpdate: (id: string, status: "accepted" | "declined" | "archived") => void;
   onSelect: (id: string) => void;
 }) {
   const isInbound = connection.to_profile_id === activeProfileId;
@@ -377,15 +304,6 @@ function ConnectionCard({
     .join(", ");
 
   const typeLabel =
-    connection.type === "inquiry"
-      ? isInbound ? "Received" : "Sent"
-      : connection.type === "invitation"
-      ? isInbound ? "Received" : "Sent"
-      : connection.type === "application"
-      ? isInbound ? "Received" : "Sent"
-      : "";
-
-  const typeIcon =
     connection.type === "inquiry" ? "Inquiry"
     : connection.type === "invitation" ? "Invitation"
     : connection.type === "application" ? "Application"
@@ -405,30 +323,28 @@ function ConnectionCard({
   );
 
   const shouldBlur = isProvider && !hasFullAccess && isInbound;
-  const noteText = parseConnectionMessage(connection.message);
-  const careType = parseCareType(connection.message);
   const imageUrl = otherProfile?.image_url;
   const initial = otherName.charAt(0).toUpperCase();
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200 group">
+    <div className="bg-white rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors group">
       <button
         type="button"
         onClick={() => onSelect(connection.id)}
-        className="block w-full text-left px-4 py-3.5 cursor-pointer bg-transparent border-none"
+        className="block w-full text-left px-3.5 py-2.5 cursor-pointer bg-transparent border-none"
       >
-        <div className="flex items-center gap-3.5">
-          {/* Provider image */}
+        <div className="flex items-center gap-3">
+          {/* Avatar */}
           <div className="shrink-0">
             {imageUrl && !shouldBlur ? (
               <img
                 src={imageUrl}
                 alt={otherName}
-                className="w-12 h-12 rounded-xl object-cover"
+                className="w-9 h-9 rounded-lg object-cover"
               />
             ) : (
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold text-white"
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white"
                 style={{ background: shouldBlur ? "#9ca3af" : avatarGradient(otherName) }}
               >
                 {shouldBlur ? "?" : initial}
@@ -436,89 +352,28 @@ function ConnectionCard({
             )}
           </div>
 
-          {/* Content */}
+          {/* Content — two lines */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-[15px] font-semibold text-gray-900 truncate leading-snug">
+              <h3 className="text-sm font-semibold text-gray-900 truncate leading-snug">
                 {shouldBlur ? blurName(otherName) : otherName}
               </h3>
-              <Badge variant={badge.variant}>{badge.label}</Badge>
+              <Badge variant={badge.variant} className="!text-xs !px-2 !py-0.5 shrink-0">
+                {badge.label}
+              </Badge>
             </div>
-
-            <p className="text-sm text-gray-500 truncate mt-0.5">
-              {shouldBlur ? "***" : [otherLocation, careType].filter(Boolean).join(" · ")}
-            </p>
-
-            <p className="text-xs text-gray-400 mt-0.5">
-              {typeIcon} {typeLabel} · {createdAt}
+            <p className="text-xs text-gray-400 truncate mt-0.5">
+              {typeLabel} · {createdAt}
+              {!shouldBlur && otherLocation ? ` · ${otherLocation}` : ""}
             </p>
           </div>
 
           {/* Chevron */}
-          <svg className="w-5 h-5 text-gray-300 shrink-0 group-hover:text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-gray-300 shrink-0 group-hover:text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </div>
       </button>
-
-      {/* Quick actions — outside the button */}
-      {isInbound && hasFullAccess && connection.status === "pending" && (
-        <div className="px-5 pb-4 -mt-1 flex gap-2">
-          <Button
-            size="sm"
-            onClick={() => onStatusUpdate(connection.id, "accepted")}
-            loading={responding}
-          >
-            Accept
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onStatusUpdate(connection.id, "declined")}
-            loading={responding}
-          >
-            Decline
-          </Button>
-        </div>
-      )}
-
-      {/* Accepted: quick actions */}
-      {connection.status === "accepted" && otherProfile && !shouldBlur && (
-        <div className="px-5 pb-4 -mt-1 flex gap-2 flex-wrap">
-          {otherProfile.email && (
-            <a
-              href={`mailto:${otherProfile.email}?subject=${encodeURIComponent(`Schedule a meeting — ${otherProfile.display_name}`)}`}
-              className="inline-flex items-center gap-1.5 bg-primary-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-primary-700 transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Schedule
-            </a>
-          )}
-          {otherProfile.phone && (
-            <a
-              href={`tel:${otherProfile.phone}`}
-              className="inline-flex items-center gap-1.5 text-primary-700 text-xs font-medium px-3 py-1.5 rounded-lg border border-primary-200 hover:bg-primary-50 transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Call
-            </a>
-          )}
-          {otherProfile.slug && (
-            <Link
-              href={`/provider/${otherProfile.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-primary-700 text-xs font-medium px-3 py-1.5 rounded-lg border border-primary-200 hover:bg-primary-50 transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Profile
-            </Link>
-          )}
-        </div>
-      )}
     </div>
   );
 }
