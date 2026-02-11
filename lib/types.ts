@@ -145,6 +145,19 @@ export interface FamilyMetadata {
   budget_min?: number;
   budget_max?: number;
   relationship_to_recipient?: string;
+  // Enrichment fields
+  contact_preference?: "call" | "text" | "email";
+  payment_methods?: string[];
+  living_situation?: string;
+  schedule_preference?: string;
+  care_location?: string;
+  language_preference?: string;
+  about_situation?: string;
+  notification_prefs?: {
+    connection_updates?: { email?: boolean; sms?: boolean };
+    saved_provider_alerts?: { email?: boolean; sms?: boolean };
+    profile_reminders?: { email?: boolean; sms?: boolean };
+  };
 }
 
 // ============================================================
