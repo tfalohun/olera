@@ -25,6 +25,24 @@ interface ConnectionDrawerProps {
   onHide?: (connectionId: string) => void;
 }
 
+interface ThreadMessage {
+  from_profile_id: string;
+  text: string;
+  created_at: string;
+  type?: string;
+  next_step?: string;
+}
+
+interface NextStepDef {
+  id: string;
+  label: string;
+  desc: string;
+  msg: string;
+  iconBg: string;
+  iconBorder: string;
+  icon: React.ReactNode;
+}
+
 /** Parse the connection message JSON for display */
 function parseMessage(message: string | null): {
   careRecipient?: string;
@@ -136,6 +154,44 @@ function ConfirmDialog({
   );
 }
 
+// ── SVG Icons ──
+
+const PhoneIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+  </svg>
+);
+
+const EmailIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+  </svg>
+);
+
+const GlobeIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+  </svg>
+);
+
+const ChevronRightIcon = ({ className = "w-3.5 h-3.5" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <polyline points="9 18 15 12 9 6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const HomeIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+  </svg>
+);
+
+const ClipboardIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+  </svg>
+);
+
 export default function ConnectionDrawer({
   connectionId,
   isOpen,
@@ -157,12 +213,9 @@ export default function ConnectionDrawer({
   const [actionLoading, setActionLoading] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
-
-  interface ThreadMessage {
-    from_profile_id: string;
-    text: string;
-    created_at: string;
-  }
+  const [nextStepConfirm, setNextStepConfirm] = useState<NextStepDef | null>(null);
+  const [nextStepNote, setNextStepNote] = useState("");
+  const [nextStepSending, setNextStepSending] = useState(false);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -296,6 +349,8 @@ export default function ConnectionDrawer({
       conversationRef.current.scrollTop = 0;
     }
     setMessageText("");
+    setNextStepConfirm(null);
+    setNextStepNote("");
   }, [isOpen, connectionId]);
 
   const handleStatusUpdate = async (
@@ -382,7 +437,6 @@ export default function ConnectionDrawer({
       });
       if (!res.ok) throw new Error("Failed to send");
       const data = await res.json();
-      // Update local connection metadata with new thread
       setConnection((prev) =>
         prev
           ? {
@@ -395,7 +449,6 @@ export default function ConnectionDrawer({
           : null
       );
       setMessageText("");
-      // Scroll conversation to bottom
       requestAnimationFrame(() => {
         conversationRef.current?.scrollTo({
           top: conversationRef.current.scrollHeight,
@@ -406,6 +459,95 @@ export default function ConnectionDrawer({
       setError("Failed to send message");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleNextStepRequest = async (step: NextStepDef) => {
+    if (!connection || !activeProfile) return;
+    setNextStepSending(true);
+    try {
+      const res = await fetch("/api/connections/next-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          connectionId: connection.id,
+          action: "request",
+          type: step.id,
+          note: nextStepNote.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to send request");
+      }
+      const data = await res.json();
+      setConnection((prev) =>
+        prev
+          ? {
+              ...prev,
+              metadata: {
+                ...((prev.metadata as Record<string, unknown>) || {}),
+                thread: data.thread,
+                next_step_request: data.next_step_request,
+              },
+            }
+          : null
+      );
+      setNextStepConfirm(null);
+      setNextStepNote("");
+      requestAnimationFrame(() => {
+        conversationRef.current?.scrollTo({
+          top: conversationRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      });
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? (err as { message: string }).message
+          : "Failed to send request";
+      setError(msg);
+    } finally {
+      setNextStepSending(false);
+    }
+  };
+
+  const handleCancelNextStep = async () => {
+    if (!connection) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/connections/next-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          connectionId: connection.id,
+          action: "cancel",
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to cancel");
+      const data = await res.json();
+      setConnection((prev) =>
+        prev
+          ? {
+              ...prev,
+              metadata: {
+                ...((prev.metadata as Record<string, unknown>) || {}),
+                thread: data.thread,
+                next_step_request: null,
+              },
+            }
+          : null
+      );
+      requestAnimationFrame(() => {
+        conversationRef.current?.scrollTo({
+          top: conversationRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      });
+    } catch {
+      setError("Failed to cancel request");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -480,9 +622,16 @@ export default function ConnectionDrawer({
   const hasPhone = isAccepted && !shouldBlur && otherProfile?.phone;
   const hasEmail = isAccepted && !shouldBlur && otherProfile?.email;
   const hasWebsite = isAccepted && !shouldBlur && otherProfile?.website;
+  const hasAnyContact = hasPhone || hasEmail || hasWebsite;
+
+  // Two-column layout: responded drawer (care seeker viewing accepted connection)
+  const isRespondedDrawer = isAccepted && !isProvider && !isInbound;
 
   // Thread messages from metadata
   const thread = (connMetadata?.thread as ThreadMessage[]) || [];
+
+  // Next step request from metadata
+  const nextStepRequest = connMetadata?.next_step_request as { type: string; note: string | null; created_at: string } | null;
 
   // Whether message input should show (pending or accepted, not blurred)
   const showMessageInput =
@@ -492,6 +641,433 @@ export default function ConnectionDrawer({
 
   const messagePlaceholder =
     connection?.status === "accepted" ? "Reply to provider..." : "Add a message...";
+
+  // Whether provider is home care / home health (show home visit option)
+  const isHomeCareProvider =
+    otherProfile?.category === "home_care_agency" ||
+    otherProfile?.category === "home_health_agency";
+
+  // Next steps definitions
+  const nextSteps: NextStepDef[] = [
+    {
+      id: "call",
+      label: "Request a call",
+      desc: "Provider will receive your phone number",
+      msg: "would like to request a phone call",
+      iconBg: "bg-indigo-50",
+      iconBorder: "border-indigo-200",
+      icon: <PhoneIcon className="w-4 h-4 text-indigo-600" />,
+    },
+    {
+      id: "consultation",
+      label: "Request a consultation",
+      desc: "Request a free in-person or virtual visit",
+      msg: "would like to request a consultation",
+      iconBg: "bg-emerald-50",
+      iconBorder: "border-emerald-200",
+      icon: <ClipboardIcon className="w-4 h-4 text-emerald-600" />,
+    },
+    ...(isHomeCareProvider
+      ? [
+          {
+            id: "visit",
+            label: "Request a home visit",
+            desc: "Request an in-home assessment",
+            msg: "would like to request a home visit",
+            iconBg: "bg-amber-50",
+            iconBorder: "border-amber-200",
+            icon: <HomeIcon className="w-4 h-4 text-amber-600" />,
+          },
+        ]
+      : []),
+  ];
+
+  // ── Conversation thread rendering ──
+  const renderConversation = () => (
+    <div className="space-y-4">
+      {/* Connection request bubble */}
+      {!shouldBlur && (
+        <div className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
+          <div className="max-w-[85%]">
+            <div className={`rounded-2xl px-4 py-3 ${
+              isInbound
+                ? "bg-gray-100 text-gray-800 rounded-tl-sm"
+                : "bg-gray-800 text-white rounded-tr-sm"
+            }`}>
+              <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${
+                isInbound ? "text-gray-400" : "text-gray-400"
+              }`}>
+                Connection request
+              </p>
+              {summary && (
+                <p className="text-base leading-relaxed">{summary}</p>
+              )}
+              {parsedMsg?.notes && (
+                <p className={`text-base italic mt-1.5 ${
+                  isInbound ? "text-gray-600" : "text-gray-400"
+                }`}>
+                  &ldquo;{parsedMsg.notes}&rdquo;
+                </p>
+              )}
+            </div>
+            <p className={`text-xs mt-1 ${
+              isInbound ? "text-left" : "text-right"
+            } text-gray-400`}>
+              {!isInbound && (
+                <>
+                  <span className="text-amber-500">{"\u25CF"}</span>{" "}
+                  {profilePercentage}% profile shared{" \u00b7 "}
+                </>
+              )}
+              {shortDate}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* System note */}
+      <SystemNote
+        connection={connection!}
+        otherName={shouldBlur ? blurName(otherName) : otherName}
+        shouldBlur={shouldBlur}
+        metadata={connMetadata}
+      />
+
+      {/* Provider responded (accepted, outbound = care seeker view) */}
+      {connection!.status === "accepted" && !shouldBlur && otherProfile && !isInbound && (
+        <div className="flex justify-start">
+          <div className="max-w-[85%]">
+            <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-tl-sm px-4 py-3">
+              <p className="text-base leading-relaxed">
+                {otherName} has accepted your connection request. You can now get in touch directly.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Provider accepted (accepted, inbound = provider view) */}
+      {connection!.status === "accepted" && !shouldBlur && isInbound && (
+        <div className="flex justify-end">
+          <div className="max-w-[85%]">
+            <div className="bg-gray-800 text-white rounded-2xl rounded-tr-sm px-4 py-3">
+              <p className="text-base leading-relaxed">
+                You accepted this connection. Reach out to start the conversation.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Thread messages */}
+      {thread.map((msg, i) => {
+        // System messages (e.g. cancellation notes)
+        if (msg.type === "system") {
+          return (
+            <div key={i} className="flex justify-center">
+              <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full">
+                {msg.text}
+              </span>
+            </div>
+          );
+        }
+
+        const isOwn = msg.from_profile_id === activeProfile?.id;
+        const msgDate = new Date(msg.created_at).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+
+        // Next step request messages get special rendering
+        if (msg.type === "next_step_request") {
+          const stepLabel =
+            msg.next_step === "call" ? "Request a call" :
+            msg.next_step === "consultation" ? "Request a consultation" :
+            msg.next_step === "visit" ? "Request a home visit" : "Request";
+          const stepIcon =
+            msg.next_step === "call" ? "\u{1F4DE}" :
+            msg.next_step === "consultation" ? "\u{1FA7A}" :
+            msg.next_step === "visit" ? "\u{1F3E0}" : "\u{1F4CB}";
+
+          return (
+            <div key={i} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+              <div className="max-w-[85%]">
+                <div className={`rounded-2xl px-4 py-3 ${
+                  isOwn
+                    ? "bg-gray-800 text-white rounded-tr-sm"
+                    : "bg-gray-100 text-gray-800 rounded-tl-sm"
+                }`}>
+                  <p className={`text-xs font-semibold mb-1.5 ${
+                    isOwn ? "text-gray-400" : "text-gray-500"
+                  }`}>
+                    {stepIcon} {stepLabel}
+                  </p>
+                  <p className="text-base leading-relaxed">{msg.text}</p>
+                </div>
+                <p className={`text-xs mt-1 ${isOwn ? "text-right" : "text-left"} text-gray-400`}>
+                  {msgDate}
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div key={i} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+            <div className="max-w-[85%]">
+              <div className={`rounded-2xl px-4 py-3 ${
+                isOwn
+                  ? "bg-gray-800 text-white rounded-tr-sm"
+                  : "bg-gray-100 text-gray-800 rounded-tl-sm"
+              }`}>
+                <p className="text-base leading-relaxed">{msg.text}</p>
+              </div>
+              <p className={`text-xs mt-1 ${isOwn ? "text-right" : "text-left"} text-gray-400`}>
+                {msgDate}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Upgrade Prompt (blurred) */}
+      {shouldBlur && (
+        <div className="py-5">
+          <UpgradePrompt context="view full details and respond" />
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Message Input ──
+  const renderMessageInput = () => {
+    if (!showMessageInput) return null;
+    return (
+      <div className="shrink-0 px-6 py-4 border-t border-gray-100">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && messageText.trim()) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            placeholder={messagePlaceholder}
+            disabled={sending}
+            className="flex-1 bg-gray-100 rounded-xl px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 min-h-[44px] outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={handleSendMessage}
+            disabled={sending || !messageText.trim()}
+            className="px-4 py-3 rounded-xl bg-primary-600 text-white text-base font-medium min-h-[44px] hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {sending ? "..." : "Send"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Right Column: Contact Section ──
+  const renderContactSection = () => (
+    <div>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        Contact
+      </p>
+      {hasAnyContact ? (
+        <div className="flex flex-col gap-2">
+          {hasPhone && (
+            <a
+              href={`tel:${otherProfile!.phone}`}
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-primary-600 hover:bg-primary-50 transition-colors"
+            >
+              <PhoneIcon className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+              <span className="truncate">{otherProfile!.phone}</span>
+            </a>
+          )}
+          {hasEmail && (
+            <a
+              href={`mailto:${otherProfile!.email}`}
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <EmailIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span className="truncate">{otherProfile!.email}</span>
+            </a>
+          )}
+          {hasWebsite && (
+            <a
+              href={otherProfile!.website!.startsWith("http") ? otherProfile!.website! : `https://${otherProfile!.website}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <GlobeIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span className="truncate">
+                {otherProfile!.website!.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+              </span>
+            </a>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-400">Contact information not yet available.</p>
+      )}
+    </div>
+  );
+
+  // ── Right Column: Next Steps Cards ──
+  const renderNextSteps = () => (
+    <div>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        Next Steps
+      </p>
+      <div className="flex flex-col gap-2.5">
+        {nextSteps.map((step) => (
+          <button
+            key={step.id}
+            type="button"
+            onClick={() => {
+              setNextStepConfirm(step);
+              setNextStepNote("");
+            }}
+            className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl border ${step.iconBorder} ${step.iconBg} text-left hover:shadow-sm transition-shadow`}
+          >
+            <div className="shrink-0">{step.icon}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900">{step.label}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
+            </div>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ── Right Column: Request Status Card ──
+  const renderRequestStatus = () => {
+    if (!nextStepRequest) return null;
+
+    const stepLabel =
+      nextStepRequest.type === "call" ? "Request a call" :
+      nextStepRequest.type === "consultation" ? "Request a consultation" :
+      nextStepRequest.type === "visit" ? "Request a home visit" : "Request";
+    const stepIcon =
+      nextStepRequest.type === "call" ? <PhoneIcon className="w-4 h-4 text-indigo-600" /> :
+      nextStepRequest.type === "consultation" ? <ClipboardIcon className="w-4 h-4 text-emerald-600" /> :
+      <HomeIcon className="w-4 h-4 text-amber-600" />;
+
+    const sentDate = new Date(nextStepRequest.created_at).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+
+    return (
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          Request Status
+        </p>
+        <div className="p-4 rounded-xl border border-amber-200/50 bg-amber-50/30">
+          <div className="flex items-center gap-2.5 mb-3">
+            {stepIcon}
+            <span className="text-sm font-bold text-gray-900">{stepLabel}</span>
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            <span className="text-xs font-semibold text-amber-700">Requested</span>
+          </div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Sent {sentDate} &middot; Waiting for {otherName} to respond
+          </p>
+          {nextStepRequest.type === "call" && (
+            <p className="text-xs text-gray-600 mt-2 bg-white px-3 py-2 rounded-lg border border-gray-200 flex items-center gap-2">
+              <PhoneIcon className="w-3 h-3 text-gray-400 shrink-0" />
+              Your phone number was shared
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleCancelNextStep}
+            disabled={actionLoading}
+            className="mt-3 px-3 py-1.5 text-xs font-medium text-red-600 bg-white border border-gray-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+          >
+            {actionLoading ? "..." : "Cancel request"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Next Step Confirmation Modal ──
+  const renderNextStepModal = () => {
+    if (!nextStepConfirm) return null;
+
+    return (
+      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
+        <div
+          className="bg-white rounded-2xl shadow-xl max-w-[420px] w-full mx-6 overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-6 pt-6 pb-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-xl ${nextStepConfirm.iconBg} flex items-center justify-center`}>
+                {nextStepConfirm.icon}
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">{nextStepConfirm.label}</h3>
+            </div>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              A request will be sent to <strong className="text-gray-700">{otherName}</strong> asking them to suggest available times.
+            </p>
+            {nextStepConfirm.id === "call" && (
+              <div className="mt-3 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                <PhoneIcon className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Your phone number will be shared with the provider so they can call you directly.
+                </p>
+              </div>
+            )}
+            <div className="mt-4">
+              <label className="text-xs font-semibold text-gray-600 block mb-2">
+                Add a note (optional)
+              </label>
+              <textarea
+                value={nextStepNote}
+                onChange={(e) => setNextStepNote(e.target.value)}
+                placeholder="e.g., Afternoons work best, any day except Wednesday..."
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-primary-500 resize-vertical min-h-[60px]"
+              />
+            </div>
+          </div>
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setNextStepConfirm(null);
+                setNextStepNote("");
+              }}
+              disabled={nextStepSending}
+              className="flex-1 min-h-[44px] text-sm font-medium text-gray-600 border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => handleNextStepRequest(nextStepConfirm)}
+              disabled={nextStepSending}
+              className="flex-[2] min-h-[44px] text-sm font-semibold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-50"
+            >
+              {nextStepSending ? "Sending..." : "Send Request"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const drawerContent = (
     <div
@@ -510,9 +1086,9 @@ export default function ConnectionDrawer({
 
       {/* Panel */}
       <div
-        className={`absolute right-0 top-0 h-full w-full max-w-[480px] bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${
-          visible ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`absolute right-0 top-0 h-full w-full bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${
+          isRespondedDrawer ? "max-w-[720px]" : "max-w-[480px]"
+        } ${visible ? "translate-x-0" : "translate-x-full"}`}
       >
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between shrink-0">
@@ -547,7 +1123,7 @@ export default function ConnectionDrawer({
 
         {connection && !loading && (
           <>
-            {/* ── Provider Info (shrink-0) ── */}
+            {/* ── Provider Info (shrink-0, full width) ── */}
             <div className="px-6 pt-6 pb-5 shrink-0">
               <div className="flex items-start gap-4">
                 {/* Avatar */}
@@ -591,15 +1167,14 @@ export default function ConnectionDrawer({
                   </div>
                   {otherProfile && !shouldBlur && (
                     <div className="flex items-center gap-2.5 mt-2 flex-wrap">
-                      {hasPhone && (
+                      {/* Show inline contact info only for non-responded accepted (provider view) */}
+                      {hasPhone && !isRespondedDrawer && (
                         <>
                           <a
                             href={`tel:${otherProfile.phone}`}
                             className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
                           >
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
+                            <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
                             {otherProfile.phone}
                           </a>
                           <span className="text-gray-200">|</span>
@@ -621,17 +1196,15 @@ export default function ConnectionDrawer({
                 </div>
               </div>
 
-              {/* Contact info (email/website) */}
-              {(hasEmail || hasWebsite) && (
+              {/* Contact info (email/website) — only for non-responded view */}
+              {!isRespondedDrawer && (hasEmail || hasWebsite) && (
                 <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
                   {hasEmail && (
                     <a
                       href={`mailto:${otherProfile!.email}`}
                       className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
                     >
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
+                      <EmailIcon className="w-4 h-4 text-gray-400" />
                       {otherProfile!.email}
                     </a>
                   )}
@@ -642,9 +1215,7 @@ export default function ConnectionDrawer({
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
                     >
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                      </svg>
+                      <GlobeIcon className="w-4 h-4 text-gray-400" />
                       {otherProfile!.website!.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                     </a>
                   )}
@@ -675,212 +1246,102 @@ export default function ConnectionDrawer({
               )}
             </div>
 
-            {/* ── Conversation (scrollable) ── */}
+            {/* ── Divider ── */}
             <div className="mx-6 border-t border-gray-100 shrink-0" />
-            <div ref={conversationRef} className="flex-1 overflow-y-auto min-h-0 px-6 py-5">
-              <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Conversation
-              </p>
 
-              <div className="space-y-4">
-                {/* Connection request bubble */}
-                {!shouldBlur && (
-                  <div className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
-                    <div className="max-w-[85%]">
-                      <div className={`rounded-2xl px-4 py-3 ${
-                        isInbound
-                          ? "bg-gray-100 text-gray-800 rounded-tl-sm"
-                          : "bg-gray-800 text-white rounded-tr-sm"
-                      }`}>
-                        <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${
-                          isInbound ? "text-gray-400" : "text-gray-400"
-                        }`}>
-                          Connection request
-                        </p>
-                        {summary && (
-                          <p className="text-base leading-relaxed">{summary}</p>
-                        )}
-                        {parsedMsg?.notes && (
-                          <p className={`text-base italic mt-1.5 ${
-                            isInbound ? "text-gray-600" : "text-gray-400"
-                          }`}>
-                            &ldquo;{parsedMsg.notes}&rdquo;
-                          </p>
-                        )}
-                      </div>
-                      <p className={`text-xs mt-1 ${
-                        isInbound ? "text-left" : "text-right"
-                      } text-gray-400`}>
-                        {!isInbound && (
-                          <>
-                            <span className="text-amber-500">{"\u25CF"}</span>{" "}
-                            {profilePercentage}% profile shared{" \u00b7 "}
-                          </>
-                        )}
-                        {shortDate}
-                      </p>
-                    </div>
+            {/* ═══ TWO-COLUMN LAYOUT (Responded Drawer) ═══ */}
+            {isRespondedDrawer ? (
+              <div className="flex flex-1 min-h-0">
+                {/* Left Column — Conversation + Message Input */}
+                <div className="flex-1 flex flex-col min-w-0 border-r border-gray-100">
+                  <div ref={conversationRef} className="flex-1 overflow-y-auto min-h-0 px-6 py-5">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                      Conversation
+                    </p>
+                    {renderConversation()}
                   </div>
-                )}
-
-                {/* System note */}
-                <SystemNote
-                  connection={connection}
-                  otherName={shouldBlur ? blurName(otherName) : otherName}
-                  shouldBlur={shouldBlur}
-                  metadata={connMetadata}
-                />
-
-                {/* Provider responded (accepted, outbound = care seeker view) */}
-                {connection.status === "accepted" && !shouldBlur && otherProfile && !isInbound && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[85%]">
-                      <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-tl-sm px-4 py-3">
-                        <p className="text-base leading-relaxed">
-                          {otherName} has accepted your connection request. You can now get in touch directly.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Provider accepted (accepted, inbound = provider view) */}
-                {connection.status === "accepted" && !shouldBlur && isInbound && (
-                  <div className="flex justify-end">
-                    <div className="max-w-[85%]">
-                      <div className="bg-gray-800 text-white rounded-2xl rounded-tr-sm px-4 py-3">
-                        <p className="text-base leading-relaxed">
-                          You accepted this connection. Reach out to start the conversation.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Thread messages */}
-                {thread.map((msg, i) => {
-                  const isOwn = msg.from_profile_id === activeProfile?.id;
-                  const msgDate = new Date(msg.created_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-                  return (
-                    <div key={i} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                      <div className="max-w-[85%]">
-                        <div className={`rounded-2xl px-4 py-3 ${
-                          isOwn
-                            ? "bg-gray-800 text-white rounded-tr-sm"
-                            : "bg-gray-100 text-gray-800 rounded-tl-sm"
-                        }`}>
-                          <p className="text-base leading-relaxed">{msg.text}</p>
-                        </div>
-                        <p className={`text-xs mt-1 ${isOwn ? "text-right" : "text-left"} text-gray-400`}>
-                          {msgDate}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Upgrade Prompt (blurred) */}
-              {shouldBlur && (
-                <div className="py-5">
-                  <UpgradePrompt context="view full details and respond" />
+                  {renderMessageInput()}
                 </div>
-              )}
-            </div>
 
-            {/* ── Message Input (pinned to bottom) ── */}
-            {showMessageInput && (
-              <div className="shrink-0 px-6 py-4 border-t border-gray-100">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey && messageText.trim()) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder={messagePlaceholder}
-                    disabled={sending}
-                    className="flex-1 bg-gray-100 rounded-xl px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 min-h-[44px] outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors disabled:opacity-50"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSendMessage}
-                    disabled={sending || !messageText.trim()}
-                    className="px-4 py-3 rounded-xl bg-primary-600 text-white text-base font-medium min-h-[44px] hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {sending ? "..." : "Send"}
-                  </button>
+                {/* Right Column — Contact + Next Steps */}
+                <div className="w-[280px] shrink-0 overflow-y-auto px-5 py-5 space-y-5">
+                  {renderContactSection()}
+                  <div className="border-t border-gray-100" />
+                  {nextStepRequest ? renderRequestStatus() : renderNextSteps()}
                 </div>
               </div>
-            )}
+            ) : (
+              /* ═══ SINGLE-COLUMN LAYOUT (Active / Past / Provider) ═══ */
+              <>
+                <div ref={conversationRef} className="flex-1 overflow-y-auto min-h-0 px-6 py-5">
+                  <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                    Conversation
+                  </p>
+                  {renderConversation()}
+                </div>
 
-            {/* ── Family: Withdraw (pending outbound) ── */}
-            {!isProvider && !isInbound && connection.status === "pending" && (
-              <div className="shrink-0 px-6 py-4 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setConfirmAction("withdraw")}
-                  className="flex items-center gap-2 text-base text-gray-500 hover:text-gray-700 transition-colors min-h-[44px]"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Withdraw request
-                </button>
-              </div>
-            )}
+                {renderMessageInput()}
 
-            {/* ── Family: Past Connection Actions (declined / expired / withdrawn) ── */}
-            {!isProvider && !shouldBlur && (connection.status === "declined" || connection.status === "expired") && (
-              <div className="shrink-0 px-6 py-5 border-t border-gray-100">
-                {connection.status === "declined" && (
-                  <div className="flex gap-3">
-                    <Link href="/browse" className="flex-1">
-                      <button
-                        type="button"
-                        className="w-full min-h-[44px] rounded-xl border border-gray-200 text-base font-medium text-primary-600 hover:bg-primary-50 transition-colors"
-                      >
-                        Browse similar &rarr;
-                      </button>
-                    </Link>
+                {/* ── Family: Withdraw (pending outbound) ── */}
+                {!isProvider && !isInbound && connection.status === "pending" && (
+                  <div className="shrink-0 px-6 py-4 border-t border-gray-100">
                     <button
                       type="button"
-                      onClick={() => setConfirmAction("remove")}
-                      className="flex-1 min-h-[44px] rounded-xl border border-gray-200 text-base font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                      onClick={() => setConfirmAction("withdraw")}
+                      className="flex items-center gap-2 text-base text-gray-500 hover:text-gray-700 transition-colors min-h-[44px]"
                     >
-                      Remove from list
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Withdraw request
                     </button>
                   </div>
                 )}
-                {connection.status === "expired" && (
-                  <div className="flex gap-3">
-                    <Link href={profileHref} className="flex-1">
-                      <button
-                        type="button"
-                        className="w-full min-h-[44px] rounded-xl bg-primary-600 text-white text-base font-semibold hover:bg-primary-700 transition-colors"
-                      >
-                        Connect again
-                      </button>
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmAction("remove")}
-                      className="flex-1 min-h-[44px] rounded-xl border border-gray-200 text-base font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-                    >
-                      Remove from list
-                    </button>
+
+                {/* ── Family: Past Connection Actions (declined / expired / withdrawn) ── */}
+                {!isProvider && !shouldBlur && (connection.status === "declined" || connection.status === "expired") && (
+                  <div className="shrink-0 px-6 py-5 border-t border-gray-100">
+                    {connection.status === "declined" && (
+                      <div className="flex gap-3">
+                        <Link href="/browse" className="flex-1">
+                          <button
+                            type="button"
+                            className="w-full min-h-[44px] rounded-xl border border-gray-200 text-base font-medium text-primary-600 hover:bg-primary-50 transition-colors"
+                          >
+                            Browse similar &rarr;
+                          </button>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmAction("remove")}
+                          className="flex-1 min-h-[44px] rounded-xl border border-gray-200 text-base font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                        >
+                          Remove from list
+                        </button>
+                      </div>
+                    )}
+                    {connection.status === "expired" && (
+                      <div className="flex gap-3">
+                        <Link href={profileHref} className="flex-1">
+                          <button
+                            type="button"
+                            className="w-full min-h-[44px] rounded-xl bg-primary-600 text-white text-base font-semibold hover:bg-primary-700 transition-colors"
+                          >
+                            Connect again
+                          </button>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmAction("remove")}
+                          className="flex-1 min-h-[44px] rounded-xl border border-gray-200 text-base font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                        >
+                          Remove from list
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
 
             {/* ── Error ── */}
@@ -894,7 +1355,7 @@ export default function ConnectionDrawer({
           </>
         )}
 
-        {/* ── Confirm Dialog Overlay ── */}
+        {/* ── Confirm Dialog Overlays ── */}
         {confirmAction === "withdraw" && (
           <ConfirmDialog
             title="Withdraw request?"
@@ -917,6 +1378,9 @@ export default function ConnectionDrawer({
             loading={actionLoading}
           />
         )}
+
+        {/* ── Next Step Confirmation Modal ── */}
+        {renderNextStepModal()}
       </div>
     </div>
   );
