@@ -359,6 +359,15 @@ function BenefitsPageContent() {
                 : `Explore payment options and coverage for ${categoryLabel.toLowerCase()} services.`
               }
             </p>
+            <Link
+              href="/benefits/finder"
+              className="inline-flex items-center gap-2 mt-5 px-6 py-3 bg-primary-600 text-white font-semibold rounded-full hover:bg-primary-500 transition-colors shadow-md"
+            >
+              Find Benefits You Qualify For
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </Link>
           </header>
 
           {/* Category Pills */}
@@ -498,6 +507,15 @@ function BenefitsPageContent() {
             Related Resources
           </h3>
           <div className="flex flex-wrap justify-center gap-3">
+            <Link
+              href="/benefits/finder"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 text-primary-700 text-sm font-medium rounded-full hover:bg-primary-200 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Benefits Finder
+            </Link>
             <Link
               href="/resources"
               className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-full hover:bg-gray-200 transition-colors"
