@@ -76,7 +76,7 @@ export function useConnectionCard(props: ConnectionCardProps) {
       const profileIds = profiles.map((p) => p.id);
 
       // Resolve provider ID: if it's not a UUID (iOS provider), look up the business_profiles record
-      let resolvedId = providerId;
+      let resolvedId: string | null = providerId;
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(providerId);
       if (!isUUID) {
         const { data: profile } = await supabase
@@ -85,25 +85,26 @@ export function useConnectionCard(props: ConnectionCardProps) {
           .eq("source_provider_id", providerId)
           .limit(1)
           .single();
-        if (!profile) return; // No business_profiles record = no existing connection
-        resolvedId = profile.id;
+        resolvedId = profile?.id || null;
       }
 
-      // Check if there's an existing connection to THIS provider
-      const { data } = await supabase
-        .from("connections")
-        .select("id, created_at")
-        .in("from_profile_id", profileIds)
-        .eq("to_profile_id", resolvedId)
-        .eq("type", "inquiry")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      // Check if there's an existing connection to THIS provider (only if we resolved the ID)
+      if (resolvedId) {
+        const { data } = await supabase
+          .from("connections")
+          .select("id, created_at")
+          .in("from_profile_id", profileIds)
+          .eq("to_profile_id", resolvedId)
+          .eq("type", "inquiry")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
 
-      if (data) {
-        setCardState("pending");
-        setPendingRequestDate(data.created_at);
-        return; // Already connected — no need to fetch previous intent
+        if (data) {
+          setCardState("pending");
+          setPendingRequestDate(data.created_at);
+          return; // Already connected — no need to fetch previous intent
+        }
       }
 
       // No connection to this provider — fetch the most recent connection

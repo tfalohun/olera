@@ -7,7 +7,6 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
 import { useAuth } from "@/components/auth/AuthProvider";
 import type { Connection, ConnectionStatus, Profile } from "@/lib/types";
-import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import UpgradePrompt from "@/components/providers/UpgradePrompt";
 
@@ -50,6 +49,40 @@ function parseMessage(message: string | null): {
   }
 }
 
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
+  pending: { label: "Pending", color: "text-amber-700", bg: "bg-amber-50", dot: "bg-amber-400" },
+  accepted: { label: "Connected", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
+  declined: { label: "Declined", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" },
+  archived: { label: "Archived", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" },
+};
+
+/** Deterministic gradient for fallback avatars */
+function avatarGradient(name: string): string {
+  const gradients = [
+    "linear-gradient(135deg, #0ea5e9, #6366f1)",
+    "linear-gradient(135deg, #14b8a6, #0ea5e9)",
+    "linear-gradient(135deg, #8b5cf6, #ec4899)",
+    "linear-gradient(135deg, #f59e0b, #ef4444)",
+    "linear-gradient(135deg, #10b981, #14b8a6)",
+    "linear-gradient(135deg, #6366f1, #a855f7)",
+    "linear-gradient(135deg, #ec4899, #f43f5e)",
+    "linear-gradient(135deg, #0891b2, #2dd4bf)",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return gradients[Math.abs(hash) % gradients.length];
+}
+
+function blurName(name: string): string {
+  if (!name) return "***";
+  return name
+    .split(" ")
+    .map((p) => p.charAt(0) + "***")
+    .join(" ");
+}
+
 export default function ConnectionDrawer({
   connectionId,
   isOpen,
@@ -59,6 +92,7 @@ export default function ConnectionDrawer({
   const { activeProfile, membership } = useAuth();
   const panelRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
   const [connection, setConnection] = useState<ConnectionDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [responding, setResponding] = useState(false);
@@ -77,9 +111,18 @@ export default function ConnectionDrawer({
     "view_inquiry_details"
   );
 
+  // Mount + animation (matches ProfileEditDrawer pattern)
+  useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (isOpen) {
+      requestAnimationFrame(() => setVisible(true));
+      document.body.style.overflow = "hidden";
+    } else {
+      setVisible(false);
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
 
   // Fetch connection data when opened
   useEffect(() => {
@@ -120,16 +163,43 @@ export default function ConnectionDrawer({
       }
 
       const profileIds = [conn.from_profile_id, conn.to_profile_id];
-      const { data: profiles } = await supabase
+      const { data: profileData } = await supabase
         .from("business_profiles")
         .select(
-          "id, display_name, description, image_url, city, state, type, email, phone, website, slug, care_types"
+          "id, display_name, description, image_url, city, state, type, email, phone, website, slug, care_types, category, source_provider_id"
         )
         .in("id", profileIds);
 
-      const profileMap = new Map(
-        ((profiles as Profile[]) || []).map((p) => [p.id, p])
-      );
+      let profiles = (profileData as Profile[]) || [];
+
+      // For profiles missing image_url, try to get image from iOS olera-providers
+      const missingImageIds = profiles
+        .filter((p) => !p.image_url && p.source_provider_id)
+        .map((p) => p.source_provider_id as string);
+
+      if (missingImageIds.length > 0) {
+        const { data: iosProviders } = await supabase
+          .from("olera-providers")
+          .select("provider_id, provider_logo, provider_images")
+          .in("provider_id", missingImageIds);
+
+        if (iosProviders?.length) {
+          const iosMap = new Map(
+            iosProviders.map((p: { provider_id: string; provider_logo: string | null; provider_images: string | null }) => [
+              p.provider_id,
+              p.provider_logo || (p.provider_images?.split(" | ")[0]) || null,
+            ])
+          );
+          profiles = profiles.map((p) => {
+            if (!p.image_url && p.source_provider_id && iosMap.has(p.source_provider_id)) {
+              return { ...p, image_url: iosMap.get(p.source_provider_id) || null };
+            }
+            return p;
+          });
+        }
+      }
+
+      const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
       setConnection({
         ...conn,
@@ -142,7 +212,7 @@ export default function ConnectionDrawer({
     fetchConnection();
   }, [isOpen, connectionId, activeProfile]);
 
-  // Keyboard & scroll lock
+  // Keyboard dismiss
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onCloseRef.current();
   }, []);
@@ -150,11 +220,7 @@ export default function ConnectionDrawer({
   useEffect(() => {
     if (!isOpen) return;
     document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, handleKeyDown]);
 
   // Scroll to top when connection changes
@@ -193,8 +259,9 @@ export default function ConnectionDrawer({
     }
   };
 
-  if (!mounted) return null;
+  if (!mounted || !isOpen) return null;
 
+  // Derived values
   const isInbound = connection
     ? connection.to_profile_id === activeProfile?.id
     : false;
@@ -205,20 +272,7 @@ export default function ConnectionDrawer({
     : null;
   const shouldBlur = isProvider && !hasFullAccess && isInbound;
 
-  const statusBadge: Record<
-    string,
-    { variant: "default" | "pending" | "verified" | "trial"; label: string }
-  > = {
-    pending: { variant: "pending", label: "Pending" },
-    accepted: { variant: "verified", label: "Accepted" },
-    declined: { variant: "default", label: "Declined" },
-    archived: { variant: "default", label: "Archived" },
-  };
-
-  const badge = connection
-    ? statusBadge[connection.status] || statusBadge.pending
-    : statusBadge.pending;
-
+  const status = STATUS_CONFIG[connection?.status || "pending"] || STATUS_CONFIG.pending;
   const otherName = otherProfile?.display_name || "Unknown";
   const otherLocation = otherProfile
     ? [otherProfile.city, otherProfile.state].filter(Boolean).join(", ")
@@ -233,10 +287,52 @@ export default function ConnectionDrawer({
       : `/profile/${otherProfile.id}`
     : "#";
 
+  const categoryLabel = otherProfile?.category
+    ? otherProfile.category
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c: string) => c.toUpperCase())
+    : otherProfile?.type === "organization"
+    ? "Organization"
+    : otherProfile?.type === "caregiver"
+    ? "Caregiver"
+    : "Family";
+
+  const shortDate = connection
+    ? new Date(connection.created_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })
+    : "";
+
+  // Build natural language summary for chat bubble
+  const buildSummary = () => {
+    if (!parsedMsg) return null;
+    const parts: string[] = [];
+    if (parsedMsg.careType) {
+      parts.push(`I'm looking for ${parsedMsg.careType.toLowerCase()}`);
+    }
+    if (parsedMsg.careRecipient) {
+      parts.push(`for ${parsedMsg.careRecipient.toLowerCase()}`);
+    }
+    if (parsedMsg.urgency) {
+      parts.push(`needed ${parsedMsg.urgency.toLowerCase()}`);
+    }
+    return parts.length > 0 ? `Hi, ${parts.join(" ")}.` : null;
+  };
+
+  const summary = buildSummary();
+
+  // Contact info — only shown after connection is accepted
+  const isAccepted = connection?.status === "accepted";
+  const hasPhone = isAccepted && !shouldBlur && otherProfile?.phone;
+  const hasEmail = isAccepted && !shouldBlur && otherProfile?.email;
+  const hasWebsite = isAccepted && !shouldBlur && otherProfile?.website;
+
+
   const drawerContent = (
     <div
       className={`fixed inset-0 z-[60] transition-opacity duration-300 ${
-        isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        visible ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
       role="dialog"
       aria-modal="true"
@@ -248,277 +344,305 @@ export default function ConnectionDrawer({
         onClick={() => onCloseRef.current()}
       />
 
-      {/* Slide-out drawer */}
+      {/* Panel */}
       <div
-        ref={panelRef}
-        className={`absolute right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+        className={`absolute right-0 top-0 h-full w-full max-w-[480px] bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${
+          visible ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Connection Details
-          </h2>
+        <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between shrink-0">
+          <h3 className="text-xl font-bold text-gray-900">Connection</h3>
           <button
+            type="button"
             onClick={() => onCloseRef.current()}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
             aria-label="Close"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-6">
+        {/* Scrollable content */}
+        <div ref={panelRef} className="flex-1 overflow-y-auto">
+          {/* Loading */}
           {loading && (
-            <div className="text-center py-12">
-              <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full mx-auto" />
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin w-7 h-7 border-[3px] border-primary-600 border-t-transparent rounded-full" />
             </div>
           )}
 
-          {error && (
-            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
+          {/* Error */}
+          {error && !connection && (
+            <div className="px-6 py-8">
+              <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-base">
+                {error}
+              </div>
             </div>
           )}
 
           {connection && !loading && (
             <>
-              {/* Provider header */}
-              <div className="flex items-start gap-4 mb-5">
-                {imageUrl && !shouldBlur ? (
-                  <img
-                    src={imageUrl}
-                    alt={otherName}
-                    className="w-14 h-14 rounded-full object-cover shrink-0"
-                  />
-                ) : (
-                  <div className="w-14 h-14 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-xl font-bold shrink-0">
-                    {shouldBlur ? "?" : initial}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      {shouldBlur ? blurName(otherName) : otherName}
-                    </h3>
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
-                  </div>
-                  {otherLocation && !shouldBlur && (
-                    <p className="text-sm text-gray-500">{otherLocation}</p>
-                  )}
-                  {otherProfile && (
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {otherProfile.type === "organization"
-                        ? "Organization"
-                        : otherProfile.type === "caregiver"
-                        ? "Caregiver"
-                        : "Family"}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Status + date */}
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-5">
-                <span>
-                  {connection.type === "inquiry"
-                    ? "Inquiry"
-                    : connection.type === "invitation"
-                    ? "Invitation"
-                    : "Application"}{" "}
-                  {isInbound ? "received" : "sent"}
-                </span>
-                <span className="text-gray-300">&middot;</span>
-                <span>
-                  {new Date(connection.created_at).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-
-              {/* Your request details */}
-              {parsedMsg && !shouldBlur && (
-                <div className="bg-gray-50 rounded-xl p-4 mb-5">
-                  <p className="text-sm font-medium text-gray-700 mb-3">
-                    {isInbound ? "Their request" : "Your request"}
-                  </p>
-                  <div className="space-y-2">
-                    {parsedMsg.careRecipient && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-400 w-24 shrink-0">
-                          Who
-                        </span>
-                        <span className="text-gray-700">
-                          {parsedMsg.careRecipient}
-                        </span>
-                      </div>
-                    )}
-                    {parsedMsg.careType && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-400 w-24 shrink-0">
-                          Care type
-                        </span>
-                        <span className="text-gray-700">
-                          {parsedMsg.careType}
-                        </span>
-                      </div>
-                    )}
-                    {parsedMsg.urgency && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-gray-400 w-24 shrink-0">
-                          Timeline
-                        </span>
-                        <span className="text-gray-700">
-                          {parsedMsg.urgency}
-                        </span>
-                      </div>
-                    )}
-                    {parsedMsg.notes && (
-                      <div className="flex items-start gap-2 text-sm pt-1">
-                        <span className="text-gray-400 w-24 shrink-0">
-                          Notes
-                        </span>
-                        <span className="text-gray-700">
-                          {parsedMsg.notes}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Care types */}
-              {otherProfile &&
-                !shouldBlur &&
-                otherProfile.care_types.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-5">
-                    {otherProfile.care_types.map((type) => (
-                      <span
-                        key={type}
-                        className="bg-primary-50 text-primary-700 text-xs px-3 py-1 rounded-full"
+              {/* ── Provider Info ── */}
+              <div className="px-6 pt-6 pb-5">
+                <div className="flex items-start gap-4">
+                  {/* Avatar */}
+                  <div className="shrink-0">
+                    {imageUrl && !shouldBlur ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={imageUrl}
+                        alt={otherName}
+                        className="w-14 h-14 rounded-xl object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white"
+                        style={{ background: shouldBlur ? "#9ca3af" : avatarGradient(otherName) }}
                       >
-                        {type}
+                        {shouldBlur ? "?" : initial}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info — reordered: category, name, location, profile link */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {!shouldBlur && (
+                          <p className="text-sm text-gray-400 leading-tight">{categoryLabel}</p>
+                        )}
+                        <h2 className="text-xl font-bold text-gray-900 leading-snug">
+                          {shouldBlur ? blurName(otherName) : otherName}
+                        </h2>
+                        {otherLocation && !shouldBlur && (
+                          <p className="text-base text-gray-500 mt-0.5">{otherLocation}</p>
+                        )}
+                      </div>
+                      {/* Status pill — top-aligned */}
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${status.bg} ${status.color}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                        {status.label}
                       </span>
-                    ))}
+                    </div>
+                    {otherProfile && !shouldBlur && (
+                      <div className="flex items-center gap-2.5 mt-2 flex-wrap">
+                        {hasPhone && (
+                          <>
+                            <a
+                              href={`tel:${otherProfile.phone}`}
+                              className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                              </svg>
+                              {otherProfile.phone}
+                            </a>
+                            <span className="text-gray-200">|</span>
+                          </>
+                        )}
+                        <Link
+                          href={profileHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                        >
+                          View provider profile
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contact info (email/website) — phone is shown inline above */}
+                {(hasEmail || hasWebsite) && (
+                  <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
+                    {hasEmail && (
+                      <a
+                        href={`mailto:${otherProfile!.email}`}
+                        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        {otherProfile!.email}
+                      </a>
+                    )}
+                    {hasWebsite && (
+                      <a
+                        href={otherProfile!.website!.startsWith("http") ? otherProfile!.website! : `https://${otherProfile!.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                        {otherProfile!.website!.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                      </a>
+                    )}
                   </div>
                 )}
 
-              {/* Action buttons */}
-              {isInbound &&
-                hasFullAccess &&
-                connection.status === "pending" && (
-                  <div className="flex gap-3 mb-5">
+                {/* Provider Actions: Pending Inbound */}
+                {isInbound && hasFullAccess && connection.status === "pending" && (
+                  <div className="mt-4 flex gap-3">
                     <Button
+                      size="sm"
                       onClick={() => handleStatusUpdate("accepted")}
                       loading={responding}
+                      className="flex-1"
                     >
                       Accept
                     </Button>
                     <Button
                       variant="secondary"
+                      size="sm"
                       onClick={() => handleStatusUpdate("declined")}
                       loading={responding}
+                      className="flex-1"
                     >
                       Decline
                     </Button>
                   </div>
                 )}
+              </div>
 
-              {/* Next steps for accepted */}
-              {connection.status === "accepted" &&
-                otherProfile &&
-                !shouldBlur && (
-                  <div className="bg-primary-50 rounded-xl p-5 mb-5">
-                    <h3 className="text-sm font-semibold text-primary-900 mb-3">
-                      Next Steps
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {otherProfile.email && (
-                        <a
-                          href={`mailto:${otherProfile.email}?subject=${encodeURIComponent(`Schedule a meeting — ${otherProfile.display_name}`)}`}
-                          className="inline-flex items-center gap-1.5 bg-primary-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-primary-700 transition-colors"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                          Schedule
-                        </a>
-                      )}
-                      {otherProfile.phone && (
-                        <a
-                          href={`tel:${otherProfile.phone}`}
-                          className="inline-flex items-center gap-1.5 text-primary-700 text-sm font-medium px-3 py-2 rounded-lg border border-primary-200 hover:bg-primary-100 transition-colors"
-                        >
-                          Call
-                        </a>
-                      )}
-                      {otherProfile.email && (
-                        <a
-                          href={`mailto:${otherProfile.email}`}
-                          className="inline-flex items-center gap-1.5 text-primary-700 text-sm font-medium px-3 py-2 rounded-lg border border-primary-200 hover:bg-primary-100 transition-colors"
-                        >
-                          Email
-                        </a>
-                      )}
+              {/* ── Conversation ── */}
+              <div className="mx-6 border-t border-gray-100" />
+              <div className="px-6 py-5">
+                <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                  Conversation
+                </p>
+
+                <div className="space-y-4">
+                  {/* Connection request bubble */}
+                  {!shouldBlur && (
+                    <div className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
+                      <div className="max-w-[85%]">
+                        <div className={`rounded-2xl px-4 py-3 ${
+                          isInbound
+                            ? "bg-gray-100 text-gray-800 rounded-tl-sm"
+                            : "bg-primary-600 text-white rounded-tr-sm"
+                        }`}>
+                          <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${
+                            isInbound ? "text-gray-400" : "text-primary-100"
+                          }`}>
+                            Connection request
+                          </p>
+                          {summary && (
+                            <p className="text-base leading-relaxed">{summary}</p>
+                          )}
+                          {parsedMsg?.notes && (
+                            <p className={`text-base italic mt-1.5 ${
+                              isInbound ? "text-gray-600" : "text-primary-100"
+                            }`}>
+                              &ldquo;{parsedMsg.notes}&rdquo;
+                            </p>
+                          )}
+                        </div>
+                        <p className={`text-xs mt-1 ${
+                          isInbound ? "text-left" : "text-right"
+                        } text-gray-400`}>
+                          {shortDate}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
+                  {/* System note */}
+                  <SystemNote
+                    connection={connection}
+                    otherName={shouldBlur ? blurName(otherName) : otherName}
+                    shouldBlur={shouldBlur}
+                  />
+
+                  {/* Provider responded (accepted, outbound = care seeker view) */}
+                  {connection.status === "accepted" && !shouldBlur && otherProfile && !isInbound && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[85%]">
+                        <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-tl-sm px-4 py-3">
+                          <p className="text-base leading-relaxed">
+                            {otherName} has accepted your connection request. You can now get in touch directly.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Provider accepted (accepted, inbound = provider view) */}
+                  {connection.status === "accepted" && !shouldBlur && isInbound && (
+                    <div className="flex justify-end">
+                      <div className="max-w-[85%]">
+                        <div className="bg-primary-600 text-white rounded-2xl rounded-tr-sm px-4 py-3">
+                          <p className="text-base leading-relaxed">
+                            You accepted this connection. Reach out to start the conversation.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Message Input (placeholder) ── */}
+              {(connection.status === "pending" || connection.status === "accepted") && !shouldBlur && (
+                <>
+                  <div className="mx-6 border-t border-gray-100" />
+                  <div className="px-6 py-4">
+                    <div className="flex gap-2">
+                      <div className="flex-1 bg-gray-100 rounded-xl px-4 py-3 text-base text-gray-400 cursor-not-allowed min-h-[44px] flex items-center">
+                        Add a message...
+                      </div>
+                      <button
+                        type="button"
+                        disabled
+                        className="px-4 py-3 rounded-xl bg-gray-100 text-gray-300 text-base font-medium cursor-not-allowed min-h-[44px]"
+                      >
+                        Send
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-1.5 text-center">
+                      Messaging coming soon
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* ── Declined Action ── */}
+              {connection.status === "declined" && !shouldBlur && (
+                <>
+                  <div className="mx-6 border-t border-gray-100" />
+                  <div className="px-6 py-5">
+                    <Link
+                      href="/browse"
+                      className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                    >
+                      Browse similar providers &rarr;
+                    </Link>
+                  </div>
+                </>
+              )}
+
+              {/* ── Upgrade Prompt (blurred) ── */}
               {shouldBlur && (
-                <div className="mb-5">
+                <div className="px-6 py-5">
                   <UpgradePrompt context="view full details and respond" />
                 </div>
               )}
 
-              {/* View profile link */}
-              {otherProfile && !shouldBlur && (
-                <Link
-                  href={profileHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-primary-600 hover:text-primary-500 text-sm font-medium transition-colors"
-                >
-                  View full profile
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                </Link>
+              {/* ── Error ── */}
+              {error && (
+                <div className="px-6 pb-5">
+                  <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-base">
+                    {error}
+                  </div>
+                </div>
               )}
             </>
           )}
@@ -530,10 +654,44 @@ export default function ConnectionDrawer({
   return createPortal(drawerContent, document.body);
 }
 
-function blurName(name: string): string {
-  if (!name) return "***";
-  return name
-    .split(" ")
-    .map((p) => p.charAt(0) + "***")
-    .join(" ");
+// ── System Note ──
+
+function SystemNote({
+  connection,
+  otherName,
+  shouldBlur,
+}: {
+  connection: ConnectionDetail;
+  otherName: string;
+  shouldBlur: boolean;
+}) {
+  let text: string | null = null;
+  let color = "text-gray-500 bg-gray-100";
+
+  switch (connection.status) {
+    case "pending":
+      text = "Sent \u00b7 Providers typically respond within a few hours";
+      break;
+    case "accepted":
+      text = shouldBlur ? "Provider responded" : `\u2713 ${otherName} responded`;
+      color = "text-emerald-700 bg-emerald-50";
+      break;
+    case "declined":
+      text = shouldBlur ? "Provider isn\u2019t taking new clients" : `${otherName} isn\u2019t taking new clients`;
+      color = "text-gray-500 bg-gray-100";
+      break;
+    case "archived":
+      text = "Connection archived";
+      break;
+  }
+
+  if (!text) return null;
+
+  return (
+    <div className="flex justify-center">
+      <span className={`text-sm font-medium px-3 py-1.5 rounded-full ${color}`}>
+        {text}
+      </span>
+    </div>
+  );
 }
