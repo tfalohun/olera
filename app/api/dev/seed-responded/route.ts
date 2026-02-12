@@ -52,13 +52,11 @@ export async function POST() {
       (existingConnections ?? []).map((c) => c.to_profile_id as string)
     );
 
-    // Find provider profiles (type "organization") that have images
+    // Find provider profiles (type "organization")
     const { data: providers, error: providerError } = await supabase
       .from("business_profiles")
-      .select("id, display_name, image_url, phone, email, website")
+      .select("id, display_name, image_url, phone, email, website, source_provider_id")
       .eq("type", "organization")
-      .not("image_url", "is", null)
-      .neq("image_url", "")
       .limit(10);
 
     if (providerError) {
