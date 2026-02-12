@@ -7,7 +7,8 @@ export type FamilyDisplayStatus =
   | "responded"
   | "declined"
   | "withdrawn"
-  | "expired";
+  | "expired"
+  | "ended";
 
 export type ConnectionTab = "active" | "responded" | "past";
 
@@ -31,6 +32,7 @@ export function getFamilyDisplayStatus(
       return "declined";
     case "expired":
     case "archived":
+      if (connection.metadata?.ended) return "ended";
       if (connection.metadata?.withdrawn) return "withdrawn";
       return "expired";
     default:
@@ -50,6 +52,7 @@ export function getConnectionTab(
     case "declined":
     case "withdrawn":
     case "expired":
+    case "ended":
       return "past";
   }
 }
@@ -94,6 +97,12 @@ export const FAMILY_STATUS_CONFIG: Record<
   },
   expired: {
     label: "Expired",
+    color: "text-gray-500",
+    bg: "bg-gray-100",
+    dot: "bg-gray-400",
+  },
+  ended: {
+    label: "Ended",
     color: "text-gray-500",
     bg: "bg-gray-100",
     dot: "bg-gray-400",

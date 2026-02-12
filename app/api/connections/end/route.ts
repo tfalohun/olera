@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
+interface ThreadMessage {
+  from_profile_id: string;
+  text: string;
+  created_at: string;
+  type?: string;
+}
+
 /**
- * POST /api/connections/hide
+ * POST /api/connections/end
  *
- * Soft-deletes a past connection from the user's list.
- * Sets metadata.hidden = true. Only works on declined/expired connections.
+ * Ends a responded (accepted) connection. Sets status to "archived"
+ * with metadata.ended = true. Auto-cancels any active next step request.
+ * Adds a system note to the conversation thread.
+ *
+ * Unlike withdraw, the provider IS notified (handled client-side for now).
  */
 export async function POST(request: Request) {
   try {
@@ -66,35 +76,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
-    // Can only hide past connections (declined, expired/withdrawn, or archived/ended)
-    if (connection.status !== "declined" && connection.status !== "expired" && connection.status !== "archived") {
+    // Can only end accepted connections
+    if (connection.status !== "accepted") {
       return NextResponse.json(
-        { error: "Can only remove past connections" },
+        { error: "Can only end responded connections" },
         { status: 400 }
       );
     }
 
-    // Set hidden flag in metadata
     const existingMeta =
       (connection.metadata as Record<string, unknown>) || {};
+    const existingThread = (existingMeta.thread as ThreadMessage[]) || [];
+    const now = new Date().toISOString();
+
+    // Add system note
+    const endMessage: ThreadMessage = {
+      from_profile_id: profileId,
+      text: "You ended this connection",
+      created_at: now,
+      type: "system",
+    };
+
+    const updatedThread = [...existingThread, endMessage];
+
     const { error: updateError } = await supabase
       .from("connections")
       .update({
-        metadata: { ...existingMeta, hidden: true },
+        status: "archived",
+        metadata: {
+          ...existingMeta,
+          thread: updatedThread,
+          ended: true,
+          next_step_request: null,
+        },
       })
       .eq("id", connectionId);
 
     if (updateError) {
-      console.error("Hide error:", updateError);
+      console.error("End connection error:", updateError);
       return NextResponse.json(
-        { error: "Failed to remove" },
+        { error: "Failed to end connection" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ status: "hidden" });
+    return NextResponse.json({ status: "ended" });
   } catch (err) {
-    console.error("Hide error:", err);
+    console.error("End connection error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
