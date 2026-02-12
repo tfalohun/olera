@@ -180,36 +180,37 @@ export default function CarePostView({
 
     return (
       <div className="max-w-[560px]">
-        {/* Back button */}
-        <button
-          onClick={() => setStep("empty")}
-          className="flex items-center gap-1.5 mb-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Back
-        </button>
-
-        <h3 className="text-lg font-bold text-gray-900 mb-1">
-          Review your care post
-        </h3>
-        <p className="text-sm text-gray-500 mb-5">
-          This is what providers will see. Make sure everything looks right
-          before publishing.
-        </p>
-
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          {/* Back button + Title + helper text */}
+          <div className="px-6 pt-5 pb-4">
+            <button
+              onClick={() => setStep("empty")}
+              className="flex items-center gap-1.5 mb-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back
+            </button>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Review your care post
+            </h3>
+            <p className="text-sm text-gray-500">
+              This is what providers will see. Make sure everything looks right
+              before publishing.
+            </p>
+          </div>
+
           {/* Profile header */}
-          <div className="px-6 py-5 border-b border-gray-100">
+          <div className="px-6 py-5 border-t border-gray-100">
             <div className="flex items-center gap-2.5">
               <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500 border-2 border-dashed border-gray-300">
                 {initials}
@@ -336,19 +337,19 @@ export default function CarePostView({
 
   return (
     <div className="max-w-[560px]">
-      {/* Status bar */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-primary-600" />
-          <span className="text-sm font-semibold text-primary-600">
-            Active care post
-          </span>
-        </div>
-        <span className="text-xs text-gray-400">Posted {publishedDate}</span>
-      </div>
-
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <div className="p-6">
+        {/* Status bar */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-primary-600" />
+            <span className="text-sm font-semibold text-primary-600">
+              Active care post
+            </span>
+          </div>
+          <span className="text-xs text-gray-400">Posted {publishedDate}</span>
+        </div>
+
+        <div className="px-6 pb-6">
           {/* Title */}
           <h3 className="text-lg font-bold text-gray-900 mb-1">
             {careTypeDisplay || "Care"} for{" "}
