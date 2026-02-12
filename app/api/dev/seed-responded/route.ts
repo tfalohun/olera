@@ -166,6 +166,30 @@ export async function POST() {
       },
     ];
 
+    // Ensure the first provider has contact info for testing
+    if (selectedProviders.length > 0) {
+      const first = selectedProviders[0];
+      if (!first.phone && !first.email && !first.website) {
+        const { error: contactError } = await supabase
+          .from("business_profiles")
+          .update({
+            phone: "(713) 555-0142",
+            email: "care@" + (first.display_name || "provider").toLowerCase().replace(/[^a-z0-9]/g, "") + ".com",
+            website: "https://www." + (first.display_name || "provider").toLowerCase().replace(/[^a-z0-9]/g, "") + ".com",
+          })
+          .eq("id", first.id);
+
+        if (!contactError) {
+          selectedProviders[0] = {
+            ...first,
+            phone: "(713) 555-0142",
+            email: "care@" + (first.display_name || "provider").toLowerCase().replace(/[^a-z0-9]/g, "") + ".com",
+            website: "https://www." + (first.display_name || "provider").toLowerCase().replace(/[^a-z0-9]/g, "") + ".com",
+          };
+        }
+      }
+    }
+
     const now = new Date();
     const insertedIds: string[] = [];
 

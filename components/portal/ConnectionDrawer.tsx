@@ -209,7 +209,7 @@ export default function ConnectionDrawer({
   const [loading, setLoading] = useState(false);
   const [responding, setResponding] = useState(false);
   const [error, setError] = useState("");
-  const [confirmAction, setConfirmAction] = useState<"withdraw" | "remove" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"withdraw" | "remove" | "end" | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
@@ -423,6 +423,38 @@ export default function ConnectionDrawer({
     }
   };
 
+  const handleEndConnection = async () => {
+    if (!connection) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/connections/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId: connection.id }),
+      });
+      if (!res.ok) throw new Error("Failed to end connection");
+      setConnection((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "archived" as ConnectionStatus,
+              metadata: {
+                ...((prev.metadata || {}) as Record<string, unknown>),
+                ended: true,
+                next_step_request: null,
+              },
+            }
+          : null
+      );
+      setConfirmAction(null);
+      onWithdraw?.(connection.id);
+    } catch {
+      setError("Failed to end connection");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!connection || !messageText.trim() || !activeProfile) return;
     setSending(true);
@@ -566,8 +598,13 @@ export default function ConnectionDrawer({
 
   const connMetadata = connection?.metadata as Record<string, unknown> | undefined;
   const isWithdrawn = connection?.status === "expired" && connMetadata?.withdrawn === true;
+  const isEnded = connection?.status === "archived" && connMetadata?.ended === true;
   const statusConfig = STATUS_CONFIG[connection?.status || "pending"] || STATUS_CONFIG.pending;
-  const status = isWithdrawn ? { ...statusConfig, label: "Withdrawn" } : statusConfig;
+  const status = isEnded
+    ? { label: "Ended", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" }
+    : isWithdrawn
+    ? { ...statusConfig, label: "Withdrawn" }
+    : statusConfig;
   const otherName = otherProfile?.display_name || "Unknown";
   const otherLocation = otherProfile
     ? [otherProfile.city, otherProfile.state].filter(Boolean).join(", ")
@@ -647,25 +684,25 @@ export default function ConnectionDrawer({
     otherProfile?.category === "home_care_agency" ||
     otherProfile?.category === "home_health_agency";
 
-  // Next steps definitions
+  // Next steps definitions — restrained neutral styling
   const nextSteps: NextStepDef[] = [
     {
       id: "call",
       label: "Request a call",
       desc: "Provider will receive your phone number",
       msg: "would like to request a phone call",
-      iconBg: "bg-indigo-50",
-      iconBorder: "border-indigo-200",
-      icon: <PhoneIcon className="w-4 h-4 text-indigo-600" />,
+      iconBg: "bg-gray-100",
+      iconBorder: "border-gray-200",
+      icon: <PhoneIcon className="w-4 h-4 text-gray-500" />,
     },
     {
       id: "consultation",
       label: "Request a consultation",
       desc: "Request a free in-person or virtual visit",
       msg: "would like to request a consultation",
-      iconBg: "bg-emerald-50",
-      iconBorder: "border-emerald-200",
-      icon: <ClipboardIcon className="w-4 h-4 text-emerald-600" />,
+      iconBg: "bg-gray-100",
+      iconBorder: "border-gray-200",
+      icon: <ClipboardIcon className="w-4 h-4 text-gray-500" />,
     },
     ...(isHomeCareProvider
       ? [
@@ -674,9 +711,9 @@ export default function ConnectionDrawer({
             label: "Request a home visit",
             desc: "Request an in-home assessment",
             msg: "would like to request a home visit",
-            iconBg: "bg-amber-50",
-            iconBorder: "border-amber-200",
-            icon: <HomeIcon className="w-4 h-4 text-amber-600" />,
+            iconBg: "bg-gray-100",
+            iconBorder: "border-gray-200",
+            icon: <HomeIcon className="w-4 h-4 text-gray-500" />,
           },
         ]
       : []),
@@ -935,9 +972,9 @@ export default function ConnectionDrawer({
               setNextStepConfirm(step);
               setNextStepNote("");
             }}
-            className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl border ${step.iconBorder} ${step.iconBg} text-left hover:shadow-sm transition-shadow`}
+            className="flex items-center gap-3 w-full px-3 py-3 rounded-xl border border-gray-200 bg-white text-left hover:bg-gray-50 transition-colors"
           >
-            <div className="shrink-0">{step.icon}</div>
+            <div className={`w-8 h-8 rounded-lg ${step.iconBg} flex items-center justify-center shrink-0`}>{step.icon}</div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900">{step.label}</p>
               <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
@@ -958,9 +995,9 @@ export default function ConnectionDrawer({
       nextStepRequest.type === "consultation" ? "Request a consultation" :
       nextStepRequest.type === "visit" ? "Request a home visit" : "Request";
     const stepIcon =
-      nextStepRequest.type === "call" ? <PhoneIcon className="w-4 h-4 text-indigo-600" /> :
-      nextStepRequest.type === "consultation" ? <ClipboardIcon className="w-4 h-4 text-emerald-600" /> :
-      <HomeIcon className="w-4 h-4 text-amber-600" />;
+      nextStepRequest.type === "call" ? <PhoneIcon className="w-4 h-4 text-gray-500" /> :
+      nextStepRequest.type === "consultation" ? <ClipboardIcon className="w-4 h-4 text-gray-500" /> :
+      <HomeIcon className="w-4 h-4 text-gray-500" />;
 
     const sentDate = new Date(nextStepRequest.created_at).toLocaleDateString("en-US", {
       month: "short",
@@ -1015,7 +1052,7 @@ export default function ConnectionDrawer({
         >
           <div className="px-6 pt-6 pb-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className={`w-10 h-10 rounded-xl ${nextStepConfirm.iconBg} flex items-center justify-center`}>
+              <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
                 {nextStepConfirm.icon}
               </div>
               <h3 className="text-lg font-bold text-gray-900">{nextStepConfirm.label}</h3>
@@ -1263,11 +1300,26 @@ export default function ConnectionDrawer({
                   {renderMessageInput()}
                 </div>
 
-                {/* Right Column — Contact + Next Steps */}
-                <div className="w-[280px] shrink-0 overflow-y-auto px-5 py-5 space-y-5">
-                  {renderContactSection()}
-                  <div className="border-t border-gray-100" />
-                  {nextStepRequest ? renderRequestStatus() : renderNextSteps()}
+                {/* Right Column — Contact + Next Steps + End Connection */}
+                <div className="w-[280px] shrink-0 overflow-y-auto px-5 py-5 flex flex-col">
+                  <div className="space-y-5 flex-1">
+                    {renderContactSection()}
+                    <div className="border-t border-gray-100" />
+                    {nextStepRequest ? renderRequestStatus() : renderNextSteps()}
+                  </div>
+                  {/* End Connection link */}
+                  <div className="pt-4 mt-4 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmAction("end")}
+                      className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      End connection
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1298,8 +1350,8 @@ export default function ConnectionDrawer({
                   </div>
                 )}
 
-                {/* ── Family: Past Connection Actions (declined / expired / withdrawn) ── */}
-                {!isProvider && !shouldBlur && (connection.status === "declined" || connection.status === "expired") && (
+                {/* ── Family: Past Connection Actions (declined / expired / withdrawn / ended) ── */}
+                {!isProvider && !shouldBlur && (connection.status === "declined" || connection.status === "expired" || connection.status === "archived") && (
                   <div className="shrink-0 px-6 py-5 border-t border-gray-100">
                     {connection.status === "declined" && (
                       <div className="flex gap-3">
@@ -1328,6 +1380,25 @@ export default function ConnectionDrawer({
                             className="w-full min-h-[44px] rounded-xl bg-primary-600 text-white text-base font-semibold hover:bg-primary-700 transition-colors"
                           >
                             Connect again
+                          </button>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmAction("remove")}
+                          className="flex-1 min-h-[44px] rounded-xl border border-gray-200 text-base font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                        >
+                          Remove from list
+                        </button>
+                      </div>
+                    )}
+                    {connection.status === "archived" && (
+                      <div className="flex gap-3">
+                        <Link href={profileHref} className="flex-1">
+                          <button
+                            type="button"
+                            className="w-full min-h-[44px] rounded-xl bg-primary-600 text-white text-base font-semibold hover:bg-primary-700 transition-colors"
+                          >
+                            Reconnect
                           </button>
                         </Link>
                         <button
@@ -1378,6 +1449,44 @@ export default function ConnectionDrawer({
             loading={actionLoading}
           />
         )}
+        {confirmAction === "end" && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30">
+            <div className="bg-white rounded-2xl p-6 mx-6 shadow-lg max-w-[400px] w-full">
+              <h4 className="text-lg font-bold text-gray-900">
+                End your connection with {otherName}?
+              </h4>
+              <p className="text-base text-gray-600 mt-2 leading-relaxed">
+                They&apos;ll be notified that you&apos;re no longer looking. You can always reconnect later.
+              </p>
+              <div className="mt-3 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                <svg className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  The provider will be notified that you&apos;ve ended this connection.
+                </p>
+              </div>
+              <div className="flex gap-3 mt-5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  disabled={actionLoading}
+                  className="flex-1 min-h-[44px] text-base font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEndConnection}
+                  disabled={actionLoading}
+                  className="flex-1 min-h-[44px] text-base font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {actionLoading ? "..." : "End Connection"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Next Step Confirmation Modal ── */}
         {renderNextStepModal()}
@@ -1417,7 +1526,7 @@ function SystemNote({
       color = "text-gray-500 bg-gray-100";
       break;
     case "archived":
-      text = "Connection archived";
+      text = metadata?.ended ? "You ended this connection" : "Connection archived";
       break;
     case "expired":
       text = metadata?.withdrawn ? "You withdrew this request" : "This request expired";
