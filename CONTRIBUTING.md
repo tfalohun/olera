@@ -39,6 +39,51 @@ Cleaning up code without changing what it does
 
 ---
 
+## Branch Strategy
+
+| Branch       | Purpose        | Deploys to                          |
+|--------------|----------------|-------------------------------------|
+| `main`       | Production     | [olera.vercel.app](https://olera.vercel.app) |
+| `staging`    | QA / Demo      | staging-olera.vercel.app            |
+| `feature/*`  | Development    | Vercel preview (auto-generated per PR) |
+
+### How code gets to production
+
+```
+feature/xyz ──PR──▶ staging ──PR──▶ main (production)
+                      │                  │
+                      ▼                  ▼
+              staging-olera.vercel.app    olera.vercel.app
+```
+
+### Branch protection
+
+- **`main`**: Requires PR with 1 approval. No direct pushes. No force pushes.
+- **`staging`**: Requires PR (self-merge OK). No direct pushes.
+
+### Environment variables
+
+Both staging and production currently share the same Supabase project. Environment-specific variables are managed in Vercel under **Settings → Environment Variables** (Production / Preview / Development).
+
+| Variable | Production | Staging (Preview) |
+|----------|------------|-------------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Same | Same (for now) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same | Same (for now) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Same | Same (for now) |
+| `STRIPE_SECRET_KEY` | Live key (when ready) | Test key |
+
+### Keeping branches in sync
+
+- Promote `staging` → `main` **at least weekly** to avoid drift
+- After a hotfix to `main`, always merge `main` back into `staging`
+- If `staging` falls behind:
+  ```bash
+  git checkout staging && git pull
+  git merge main && git push
+  ```
+
+---
+
 ## The Contribution Workflow
 
 ### Step 1: Pick Something to Work On
@@ -53,12 +98,12 @@ Check our [GitHub Issues](https://github.com/olera-care/olera-web/issues) or the
 
 ### Step 2: Create a Branch
 
-Always work on a branch, never directly on `main`.
+Always work on a branch, never directly on `main`. **Branch from `staging`**, not `main`.
 
 ```bash
-# Make sure you have the latest code
-git checkout main
-git pull origin main
+# Make sure you have the latest staging
+git checkout staging
+git pull origin staging
 
 # Create your branch
 git checkout -b your-branch-name
@@ -121,15 +166,17 @@ git push origin your-branch-name
 1. Go to https://github.com/olera-care/olera-web
 2. You'll see a yellow banner saying "your-branch-name had recent pushes"
 3. Click "Compare & pull request"
-4. Write a description of what you changed and why
-5. Click "Create pull request"
+4. **Set the base branch to `staging`** (not `main`)
+5. Write a description of what you changed and why
+6. Click "Create pull request"
 
 ### Step 8: Get Reviewed
 
 - Someone will review your PR
 - They might suggest changes - that's normal and helpful!
 - Make any requested changes on your branch and push again
-- Once approved, your PR will be merged
+- Once approved, your PR will be merged into `staging`
+- When staging is validated, a separate PR promotes `staging` → `main` (production)
 
 ---
 
@@ -278,15 +325,15 @@ npm run dev
 Don't panic! This happens when two people edit the same file.
 
 ```bash
-# Get the latest main
-git checkout main
-git pull origin main
+# Get the latest staging
+git checkout staging
+git pull origin staging
 
 # Go back to your branch
 git checkout your-branch-name
 
-# Merge main into your branch
-git merge main
+# Merge staging into your branch
+git merge staging
 ```
 
 If there are conflicts, VS Code will show them. Look for:
@@ -342,9 +389,9 @@ This 15-minute exercise walks through the entire workflow with a real change.
 #### Step 1: Get the Latest Code (1 min)
 
 ```bash
-cd ~/Desktop/olera-web    # Navigate to project
-git checkout main          # Switch to main branch
-git pull origin main       # Get latest changes
+cd ~/Desktop/olera-web       # Navigate to project
+git checkout staging          # Switch to staging branch
+git pull origin staging       # Get latest changes
 ```
 
 #### Step 2: Create Your Branch (1 min)
@@ -401,8 +448,8 @@ First time? GitHub may ask you to set up credentials.
 #### Step 8: Sync Your Local (1 min)
 
 ```bash
-git checkout main
-git pull origin main
+git checkout staging
+git pull origin staging
 ```
 
 ---
@@ -418,17 +465,31 @@ git pull origin main
 | Stage all changes | `git add .` |
 | Commit | `git commit -m "message"` |
 | Push | `git push origin branch-name` |
-| Get latest main | `git checkout main && git pull` |
+| Get latest staging | `git checkout staging && git pull` |
+
+---
+
+### Hotfixes (urgent production issues)
+
+For fixes that can't wait for the staging cycle:
+
+1. Branch from `main` (not `staging`)
+2. Open PR directly targeting `main`
+3. After merging, sync `staging`:
+   ```bash
+   git checkout staging && git pull
+   git merge main && git push
+   ```
 
 ---
 
 ### The Golden Rule
 
 ```
-main → branch → changes → push → PR → review → merge
+staging → branch → changes → push → PR to staging → review → merge → promote to main
 ```
 
-**Never push directly to main. Always use a PR.**
+**Never push directly to `main` or `staging`. Always use a PR.**
 
 ---
 

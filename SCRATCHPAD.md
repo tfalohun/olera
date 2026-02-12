@@ -33,6 +33,7 @@ _Active work items and their current state._
 - [x] Add "Email me a code instead" to web sign-in ✅
 - [x] Admin dashboard MVP (provider approvals, leads, team management)
 - [x] Auth overhaul — unified modal, Google OAuth, post-auth onboarding
+- [x] Staging environment — `staging` branch + Vercel domain + branch protection + CONTRIBUTING.md
 
 ---
 
@@ -53,7 +54,6 @@ _What should be tackled next, in priority order._
 3. **Community forum flagging** infrastructure for admin moderation
 4. **Update claim flow** - Wire `source_provider_id` to claim existing olera-providers listings
 5. Payment/subscription integration
-6. Environment strategy (dev/staging/prod)
 
 ---
 
@@ -75,6 +75,7 @@ _Key decisions with rationale, for future reference._
 | 2026-02-10 | Google OAuth primary CTA | One-click auth is fastest path; positioned above email |
 | 2026-02-10 | Single UnifiedAuthModal replaces 2 modals | Eliminated ~2,000 LOC of duplication |
 | 2026-02-10 | Post-auth onboarding inside modal | No separate /onboarding page; smoother UX |
+| 2026-02-12 | Staging environment: staging branch + Vercel domain + branch protection | Buffer between dev and production; shared Supabase for now, separate later |
 | 2026-01-30 | Added Claude Code slash commands | Standardize workflow for explore → plan → build → save cycle |
 
 ---
@@ -89,6 +90,33 @@ _Useful context, patterns noticed, things to remember._
 ---
 
 ## Session Log
+
+### 2026-02-12 (Session 12)
+
+**Staging Environment Setup:**
+
+- **Explored** codebase deployment config (Vercel, env vars, git workflow, Supabase)
+- **Created `staging` branch** from `main` and pushed to origin
+- **Updated `CONTRIBUTING.md`** with staging workflow:
+  - Branch strategy table (main=production, staging=QA, feature/*=dev)
+  - Deployment flow diagram
+  - Branch protection rules
+  - Environment variable docs
+  - Hotfix procedure
+  - Updated all existing sections to reference `staging` instead of `main`
+- **Created plan**: `plans/staging-environment-plan.md`
+
+**Manual steps for TJ (Vercel + GitHub dashboards):**
+- [ ] Vercel: Add staging domain alias linked to `staging` branch
+- [ ] GitHub: Add branch protection on `main` (require PR + 1 approval)
+- [ ] GitHub: (Optional) Add lighter protection on `staging` (require PR, 0 approvals)
+
+**Files changed:**
+- `CONTRIBUTING.md` — added staging workflow, updated all branch references
+- `SCRATCHPAD.md` — updated In Progress, Next Up, Decisions, Session Log
+- `plans/staging-environment-plan.md` — full implementation plan (new)
+
+---
 
 ### 2026-02-10 (Session 11)
 
