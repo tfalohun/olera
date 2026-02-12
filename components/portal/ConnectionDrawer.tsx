@@ -322,6 +322,12 @@ export default function ConnectionDrawer({
 
   const summary = buildSummary();
 
+  // Contact info available?
+  const hasPhone = !shouldBlur && otherProfile?.phone;
+  const hasEmail = !shouldBlur && otherProfile?.email;
+  const hasWebsite = !shouldBlur && otherProfile?.website;
+  const hasContact = hasPhone || hasEmail || hasWebsite;
+
   const drawerContent = (
     <div
       className={`fixed inset-0 z-[60] transition-opacity duration-300 ${
@@ -400,17 +406,26 @@ export default function ConnectionDrawer({
                     )}
                   </div>
 
-                  {/* Info */}
-                  <div className="min-w-0 flex-1 pt-0.5">
-                    <h2 className="text-xl font-bold text-gray-900 leading-snug">
-                      {shouldBlur ? blurName(otherName) : otherName}
-                    </h2>
-                    {otherLocation && !shouldBlur && (
-                      <p className="text-base text-gray-500 mt-0.5">{otherLocation}</p>
-                    )}
-                    {!shouldBlur && (
-                      <p className="text-sm text-gray-400 mt-0.5">{categoryLabel}</p>
-                    )}
+                  {/* Info — reordered: category, name, location, profile link */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {!shouldBlur && (
+                          <p className="text-sm text-gray-400 leading-tight">{categoryLabel}</p>
+                        )}
+                        <h2 className="text-xl font-bold text-gray-900 leading-snug">
+                          {shouldBlur ? blurName(otherName) : otherName}
+                        </h2>
+                        {otherLocation && !shouldBlur && (
+                          <p className="text-base text-gray-500 mt-0.5">{otherLocation}</p>
+                        )}
+                      </div>
+                      {/* Status pill — top-aligned */}
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${status.bg} ${status.color}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                        {status.label}
+                      </span>
+                    </div>
                     {otherProfile && !shouldBlur && (
                       <Link
                         href={profileHref}
@@ -427,13 +442,69 @@ export default function ConnectionDrawer({
                   </div>
                 </div>
 
-                {/* Status badge */}
-                <div className="mt-4">
-                  <span className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full ${status.bg} ${status.color}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                    {status.label}
-                  </span>
-                </div>
+                {/* Contact info — shown whenever available */}
+                {hasContact && (
+                  <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
+                    {hasPhone && (
+                      <a
+                        href={`tel:${otherProfile!.phone}`}
+                        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        {otherProfile!.phone}
+                      </a>
+                    )}
+                    {hasEmail && (
+                      <a
+                        href={`mailto:${otherProfile!.email}`}
+                        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        {otherProfile!.email}
+                      </a>
+                    )}
+                    {hasWebsite && (
+                      <a
+                        href={otherProfile!.website!.startsWith("http") ? otherProfile!.website! : `https://${otherProfile!.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                        {otherProfile!.website!.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Provider Actions: Pending Inbound */}
+                {isInbound && hasFullAccess && connection.status === "pending" && (
+                  <div className="mt-4 flex gap-3">
+                    <Button
+                      size="sm"
+                      onClick={() => handleStatusUpdate("accepted")}
+                      loading={responding}
+                      className="flex-1"
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleStatusUpdate("declined")}
+                      loading={responding}
+                      className="flex-1"
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* ── Conversation ── */}
@@ -533,66 +604,6 @@ export default function ConnectionDrawer({
                     <p className="text-sm text-gray-400 mt-1.5 text-center">
                       Messaging coming soon
                     </p>
-                  </div>
-                </>
-              )}
-
-              {/* ── Get in Touch (accepted) ── */}
-              {connection.status === "accepted" && otherProfile && !shouldBlur && (
-                <>
-                  <div className="mx-6 border-t border-gray-100" />
-                  <div className="px-6 py-5">
-                    <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                      Get in touch
-                    </p>
-                    <div className="space-y-2">
-                      {otherProfile.phone && (
-                        <a
-                          href={`tel:${otherProfile.phone}`}
-                          className="w-full flex items-center justify-center gap-2 bg-white border-2 border-gray-200 rounded-xl px-4 py-3.5 text-base font-medium text-gray-900 hover:border-primary-300 hover:bg-primary-50/30 transition-colors"
-                        >
-                          <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                          </svg>
-                          {otherProfile.phone}
-                        </a>
-                      )}
-                      {otherProfile.email && (
-                        <a
-                          href={`mailto:${otherProfile.email}?subject=${encodeURIComponent(`Scheduling a visit \u2014 ${otherProfile.display_name}`)}`}
-                          className="w-full flex items-center justify-center gap-2 bg-white border-2 border-gray-200 rounded-xl px-4 py-3.5 text-base font-medium text-gray-900 hover:border-primary-300 hover:bg-primary-50/30 transition-colors"
-                        >
-                          <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                          Email {otherProfile.display_name?.split(" ")[0]}
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* ── Provider Actions: Pending Inbound ── */}
-              {isInbound && hasFullAccess && connection.status === "pending" && (
-                <>
-                  <div className="mx-6 border-t border-gray-100" />
-                  <div className="px-6 py-5 flex gap-3">
-                    <Button
-                      onClick={() => handleStatusUpdate("accepted")}
-                      loading={responding}
-                      className="flex-1"
-                    >
-                      Accept
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleStatusUpdate("declined")}
-                      loading={responding}
-                      className="flex-1"
-                    >
-                      Decline
-                    </Button>
                   </div>
                 </>
               )}

@@ -393,7 +393,7 @@ function ConnectionGroup({
         </h3>
         <span className="text-sm text-gray-400">({connections.length})</span>
       </div>
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {connections.map((connection) => (
           <ConnectionCard
             key={connection.id}
@@ -467,9 +467,9 @@ function ConnectionCard({
       }`}
     >
       <div className="px-4 py-3.5">
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-start gap-3.5">
           {/* Avatar */}
-          <div className="shrink-0">
+          <div className="shrink-0 mt-0.5">
             {imageUrl && !shouldBlur ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -489,31 +489,29 @@ function ConnectionCard({
 
           {/* Content */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                {variant === "attention" && (
-                  <svg className="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6z" />
-                  </svg>
-                )}
-                <h3 className="text-base font-semibold text-gray-900 truncate leading-snug">
-                  {shouldBlur ? blurName(otherName) : otherName}
-                </h3>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 leading-tight">{careTypeLabel}</p>
+                <div className="flex items-center gap-1.5">
+                  {variant === "attention" && (
+                    <svg className="w-3.5 h-3.5 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6z" />
+                    </svg>
+                  )}
+                  <h3 className="text-base font-semibold text-gray-900 truncate leading-snug">
+                    {shouldBlur ? blurName(otherName) : otherName}
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-500 truncate mt-0.5">
+                  {createdAt}
+                  {!shouldBlur && otherLocation ? ` \u00b7 ${otherLocation}` : ""}
+                </p>
               </div>
-              <Badge variant={badge.variant} className="!text-xs !px-2.5 !py-0.5 shrink-0">
+              <Badge variant={badge.variant} className="!text-xs !px-2.5 !py-0.5 shrink-0 mt-0.5">
                 {badge.label}
               </Badge>
             </div>
-            <p className="text-sm text-gray-500 truncate mt-0.5">
-              {careTypeLabel} &middot; {createdAt}
-              {!shouldBlur && otherLocation ? ` \u00b7 ${otherLocation}` : ""}
-            </p>
           </div>
-
-          {/* Chevron */}
-          <svg className="w-4 h-4 text-gray-300 shrink-0 group-hover:text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
         </div>
       </div>
     </button>
