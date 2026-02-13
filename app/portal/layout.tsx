@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useProfileCompleteness } from "@/components/portal/profile/completeness";
 import Button from "@/components/ui/Button";
 import type { ReactNode } from "react";
 
@@ -33,6 +35,8 @@ const ALL_NAV_ITEMS = [
 export default function PortalLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, account, activeProfile, isLoading, fetchError, refreshAccountData } = useAuth();
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const completeness = useProfileCompleteness(activeProfile ?? null, user?.email);
 
   // Brief spinner while getSession() runs (reads local storage — very fast)
   if (isLoading) {
@@ -108,6 +112,11 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  const showNudge =
+    activeProfile?.type === "family" &&
+    completeness.percentage < 60 &&
+    !nudgeDismissed;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Mobile: header + horizontal tabs */}
@@ -163,8 +172,62 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
               })}
             </nav>
 
-            {/* Bottom link — pushed down */}
+            {/* Bottom section — pushed down */}
             <div className="mt-auto pt-4 border-t border-gray-100">
+              {/* Profile completeness nudge */}
+              {showNudge && (
+                <div className="mb-3 px-3 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200 relative">
+                  <button
+                    onClick={() => setNudgeDismissed(true)}
+                    className="absolute top-2 right-2 text-amber-400 hover:text-amber-600 transition-colors"
+                    aria-label="Dismiss"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                  <div className="flex items-center gap-2.5">
+                    <div className="relative w-8 h-8 shrink-0">
+                      <svg width="32" height="32" viewBox="0 0 32 32">
+                        <circle cx="16" cy="16" r="13" fill="none" stroke="#fcd34d" strokeWidth="2.5" />
+                        <circle
+                          cx="16"
+                          cy="16"
+                          r="13"
+                          fill="none"
+                          stroke="#d97706"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeDasharray={`${(completeness.percentage / 100) * 81.68} 81.68`}
+                          transform="rotate(-90 16 16)"
+                        />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-amber-700">
+                        {completeness.percentage}%
+                      </span>
+                    </div>
+                    <div className="pr-4">
+                      <p className="text-[12px] font-semibold text-amber-900 leading-tight">
+                        Your profile is incomplete
+                      </p>
+                      <p className="text-[11px] text-amber-700/80 leading-snug mt-0.5">
+                        Complete profiles get more responses.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/portal/profile"
+                    className="flex items-center gap-1 mt-2 text-[12px] font-medium text-amber-700 hover:text-amber-900 transition-colors"
+                  >
+                    Complete profile
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14" />
+                      <path d="M12 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              )}
               <Link
                 href="/browse"
                 className="flex items-center gap-2 px-3 py-2.5 text-base font-medium text-primary-600 hover:text-primary-700 transition-colors"

@@ -229,9 +229,9 @@ export default function ProfileEditDrawer({
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" onClick={handleClose} />
 
       {/* Panel */}
-      <div className={`absolute right-0 top-0 h-full w-full max-w-[480px] bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${visible ? "translate-x-0" : "translate-x-full"}`}>
+      <div className={`absolute right-0 top-0 h-full w-full max-w-[540px] bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${visible ? "translate-x-0" : "translate-x-full"}`}>
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between shrink-0">
+        <div className="px-7 py-5 border-b border-gray-200 flex items-center justify-between shrink-0">
           <div>
             <h3 className="text-xl font-bold text-gray-900">Edit Profile</h3>
             <p className="text-sm text-gray-500 mt-0.5">Step {step + 1} of {STEPS.length} &middot; {STEPS[step]}</p>
@@ -244,7 +244,7 @@ export default function ProfileEditDrawer({
         </div>
 
         {/* Step progress bar */}
-        <div className="flex gap-1 px-6 pt-3 shrink-0">
+        <div className="flex gap-1 px-7 pt-3 shrink-0">
           {STEPS.map((_, i) => (
             <button
               key={i}
@@ -256,7 +256,7 @@ export default function ProfileEditDrawer({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-7 py-6">
           {step === 0 && (
             <div className="space-y-5">
               <div>
@@ -395,7 +395,7 @@ export default function ProfileEditDrawer({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between shrink-0 bg-white">
+        <div className="px-7 py-4 border-t border-gray-200 flex items-center justify-between shrink-0 bg-white">
           {step > 0 ? (
             <Button variant="secondary" size="md" onClick={() => { saveToDb(); setStep(step - 1); }}>&larr; Back</Button>
           ) : <div />}

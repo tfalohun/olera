@@ -102,11 +102,12 @@ export async function POST(request: Request) {
     const { error: updateError } = await supabase
       .from("connections")
       .update({
-        status: "archived",
+        status: "expired",
         metadata: {
           ...existingMeta,
           thread: updatedThread,
           ended: true,
+          ended_at: now,
           next_step_request: null,
         },
       })

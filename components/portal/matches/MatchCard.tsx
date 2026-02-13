@@ -7,6 +7,7 @@ import {
   getPrimaryImage,
   getCategoryDisplayName,
   formatLocation,
+  formatPriceRange,
 } from "@/lib/types/provider";
 
 interface MatchCardProps {
@@ -46,10 +47,17 @@ export default function MatchCard({
   const categoryDisplay = getCategoryDisplayName(provider.provider_category);
   const rating = provider.google_rating || 0;
 
-  // Payment methods from metadata (not directly available on olera-providers, show category-based tags)
+  const priceDisplay = formatPriceRange(provider);
+
+  // Infer payment tags from category (olera-providers table lacks payment columns)
   const paymentTags: string[] = [];
-  if (provider.lower_price || provider.upper_price) {
-    paymentTags.push("Private pay");
+  if (provider.lower_price || provider.upper_price) paymentTags.push("Private pay");
+  const cat = provider.provider_category?.toLowerCase() || "";
+  if (cat.includes("nursing home") || cat.includes("home health") || cat.includes("hospice")) {
+    paymentTags.push("Medicare");
+  }
+  if (cat.includes("nursing home") || cat.includes("hospice")) {
+    paymentTags.push("Medicaid");
   }
 
   return (
@@ -62,7 +70,7 @@ export default function MatchCard({
             alt={provider.provider_name}
             fill
             className="object-cover"
-            sizes="(max-width: 640px) 100vw, 480px"
+            sizes="(max-width: 640px) 100vw, 600px"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
@@ -71,21 +79,19 @@ export default function MatchCard({
         )}
 
         {/* Gradient overlay */}
-        <div className="absolute bottom-0 left-0 right-0 h-[100px] bg-gradient-to-t from-black/55 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-[120px] bg-gradient-to-t from-black/60 to-transparent" />
 
-        {/* Care type tag */}
-        <div className="absolute bottom-14 left-5">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/45 backdrop-blur-sm text-[11px] font-semibold text-white uppercase tracking-wide">
-            {categoryDisplay}
-          </span>
-        </div>
-
-        {/* Name + location overlay */}
-        <div className="absolute bottom-3.5 left-5 right-5">
-          <p className="text-[22px] font-bold text-white mb-0.5 drop-shadow-sm truncate">
+        {/* Category + Name + Location — stacked compact */}
+        <div className="absolute bottom-3 left-4 right-4 flex flex-col gap-0.5">
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/45 backdrop-blur-sm text-[11px] font-semibold text-white uppercase tracking-wide">
+              {categoryDisplay}
+            </span>
+          </div>
+          <p className="text-[20px] font-bold text-white drop-shadow-sm truncate">
             {provider.provider_name}
           </p>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-white/85">
               <svg
                 width="13"
@@ -99,7 +105,7 @@ export default function MatchCard({
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
-              <span className="text-[13px]">{location}</span>
+              <span className="text-[15px]">{location}</span>
             </div>
           </div>
         </div>
@@ -113,9 +119,9 @@ export default function MatchCard({
       </div>
 
       {/* Details section */}
-      <div className="px-5 py-4">
+      <div className="px-4 py-3">
         {/* Rating + view profile */}
-        <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             {/* Shield icon */}
             <svg
@@ -156,32 +162,26 @@ export default function MatchCard({
               <polyline points="15 3 21 3 21 9" />
               <line x1="10" y1="14" x2="21" y2="3" />
             </svg>
-            <span className="text-xs text-primary-600 font-medium">
+            <span className="text-sm text-primary-600 font-medium">
               View profile
             </span>
           </button>
         </div>
 
-        {/* Description */}
-        {provider.provider_description && (
-          <p className="text-[13px] text-gray-600 mb-3.5 leading-relaxed line-clamp-2">
-            {provider.provider_description}
-          </p>
-        )}
-
-        {/* Payment method pills */}
-        {paymentTags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {paymentTags.map((tag) => (
-              <span
-                key={tag}
-                className="text-[11px] text-primary-700 bg-primary-50 px-2.5 py-1.5 rounded-md font-semibold"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Pricing + payment tags — always shown for consistent card height */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-[15px] font-bold text-gray-900">
+            {priceDisplay || "Contact for pricing"}
+          </span>
+          {paymentTags.map((tag) => (
+            <span
+              key={tag}
+              className="text-[11px] text-primary-700 bg-primary-50 px-2.5 py-1 rounded-md font-semibold"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
