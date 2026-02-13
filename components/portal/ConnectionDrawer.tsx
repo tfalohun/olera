@@ -70,13 +70,65 @@ function parseMessage(message: string | null): {
   }
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
-  pending: { label: "Pending", color: "text-amber-700", bg: "bg-amber-50", dot: "bg-amber-400" },
-  accepted: { label: "Connected", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
-  declined: { label: "Declined", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" },
-  archived: { label: "Archived", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" },
-  expired: { label: "Expired", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" },
-};
+/** Context-aware status chip config */
+function getStatusConfig(
+  status: string,
+  isInbound: boolean,
+  isWithdrawn: boolean,
+  isEnded: boolean
+): { label: string; color: string; bg: string; dot: string } {
+  if (isEnded) return { label: "Ended", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" };
+  if (isWithdrawn) return { label: "Withdrawn", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" };
+  switch (status) {
+    case "pending":
+      return isInbound
+        ? { label: "Needs response", color: "text-amber-700", bg: "bg-amber-50", dot: "bg-amber-400" }
+        : { label: "Awaiting reply", color: "text-blue-700", bg: "bg-blue-50", dot: "bg-blue-400" };
+    case "accepted":
+      return { label: "Connected", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" };
+    case "declined":
+      return { label: "Not available", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" };
+    case "archived":
+      return { label: "Archived", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" };
+    case "expired":
+      return { label: "Expired", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" };
+    default:
+      return { label: "Pending", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" };
+  }
+}
+
+// SVG icons for status header
+function PaperAirplaneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+    </svg>
+  );
+}
+
+function BellOutlineIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  );
+}
+
+function CheckCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function MinusCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
 
 /** Deterministic gradient for fallback avatars */
 function avatarGradient(name: string): string {
@@ -600,12 +652,7 @@ export default function ConnectionDrawer({
   const connMetadata = connection?.metadata as Record<string, unknown> | undefined;
   const isWithdrawn = connection?.status === "expired" && connMetadata?.withdrawn === true;
   const isEnded = connection?.status === "archived" && connMetadata?.ended === true;
-  const statusConfig = STATUS_CONFIG[connection?.status || "pending"] || STATUS_CONFIG.pending;
-  const status = isEnded
-    ? { label: "Ended", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" }
-    : isWithdrawn
-    ? { ...statusConfig, label: "Withdrawn" }
-    : statusConfig;
+  const status = getStatusConfig(connection?.status || "pending", isInbound, isWithdrawn, isEnded);
   const otherName = otherProfile?.display_name || "Unknown";
   const otherLocation = otherProfile
     ? [otherProfile.city, otherProfile.state].filter(Boolean).join(", ")
@@ -662,8 +709,8 @@ export default function ConnectionDrawer({
   const hasWebsite = isAccepted && !shouldBlur && otherProfile?.website;
   const hasAnyContact = hasPhone || hasEmail || hasWebsite;
 
-  // Two-column layout: responded drawer (care seeker viewing accepted connection)
-  const isRespondedDrawer = isAccepted && !isProvider && !isInbound;
+  // Two-column layout for accepted connections (both roles)
+  const isRespondedDrawer = isAccepted && !shouldBlur;
 
   // Thread messages from metadata
   const thread = (connMetadata?.thread as ThreadMessage[]) || [];
@@ -679,31 +726,29 @@ export default function ConnectionDrawer({
 
   const messagePlaceholder =
     connection?.status === "accepted"
-      ? isProvider
-        ? "Reply to family..."
-        : "Reply to provider..."
-      : "Add a message...";
+      ? `Message ${otherName}...`
+      : "Add a note...";
 
   // Whether provider is home care / home health (show home visit option)
   const isHomeCareProvider =
     otherProfile?.category === "home_care_agency" ||
     otherProfile?.category === "home_health_agency";
 
-  // Next steps definitions — restrained neutral styling
+  // Next steps definitions — outcome-oriented copy
   const nextSteps: NextStepDef[] = [
     {
       id: "call",
-      label: "Request a call",
-      desc: "Provider will receive your phone number",
-      msg: "would like to request a phone call",
-      iconBg: "bg-gray-100",
-      iconBorder: "border-gray-200",
-      icon: <PhoneIcon className="w-4 h-4 text-gray-500" />,
+      label: "Schedule a call",
+      desc: "Talk directly to discuss care needs",
+      msg: "would like to schedule a phone call",
+      iconBg: "bg-primary-50",
+      iconBorder: "border-primary-200",
+      icon: <PhoneIcon className="w-4 h-4 text-primary-600" />,
     },
     {
       id: "consultation",
       label: "Request a consultation",
-      desc: "Request a free in-person or virtual visit",
+      desc: "Meet in person or virtually to assess fit",
       msg: "would like to request a consultation",
       iconBg: "bg-gray-100",
       iconBorder: "border-gray-200",
@@ -714,7 +759,7 @@ export default function ConnectionDrawer({
           {
             id: "visit",
             label: "Request a home visit",
-            desc: "Request an in-home assessment",
+            desc: "See the care environment firsthand",
             msg: "would like to request a home visit",
             iconBg: "bg-gray-100",
             iconBorder: "border-gray-200",
@@ -724,166 +769,249 @@ export default function ConnectionDrawer({
       : []),
   ];
 
+  // ── Date separator helper ──
+  const formatDateSeparator = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
+
+  const getDateKey = (dateStr: string) => new Date(dateStr).toDateString();
+
   // ── Conversation thread rendering ──
-  const renderConversation = () => (
-    <div className="space-y-4">
-      {/* Connection request bubble */}
-      {!shouldBlur && (
-        <div className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
-          <div className="max-w-[85%]">
-            <div className={`rounded-2xl px-4 py-3 ${
-              isInbound
-                ? "bg-gray-100 text-gray-800 rounded-tl-sm"
-                : "bg-gray-800 text-white rounded-tr-sm"
-            }`}>
-              <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${
-                isInbound ? "text-gray-400" : "text-gray-400"
-              }`}>
-                Connection request
-              </p>
-              {summary && (
-                <p className="text-base leading-relaxed">{summary}</p>
-              )}
-              {parsedMsg?.notes && (
-                <p className={`text-base italic mt-1.5 ${
-                  isInbound ? "text-gray-600" : "text-gray-400"
-                }`}>
-                  &ldquo;{parsedMsg.notes}&rdquo;
-                </p>
-              )}
-            </div>
-            <p className={`text-xs mt-1 ${
-              isInbound ? "text-left" : "text-right"
-            } text-gray-400`}>
-              {!isInbound && (
-                <>
-                  <span className="text-amber-500">{"\u25CF"}</span>{" "}
-                  {profilePercentage}% profile shared{" \u00b7 "}
-                </>
-              )}
-              {shortDate}
-            </p>
-          </div>
+  const renderConversation = () => {
+    // Collect all displayable items with dates for separator logic
+    const requestDate = connection?.created_at ? getDateKey(connection.created_at) : "";
+
+    return (
+      <div className="space-y-4">
+        {/* Date separator for request */}
+        <div className="flex items-center gap-3 py-1">
+          <div className="flex-1 border-t border-gray-100" />
+          <span className="text-xs font-medium text-gray-400">
+            {connection?.created_at ? formatDateSeparator(connection.created_at) : ""}
+          </span>
+          <div className="flex-1 border-t border-gray-100" />
         </div>
-      )}
 
-      {/* System note */}
-      <SystemNote
-        connection={connection!}
-        otherName={shouldBlur ? blurName(otherName) : otherName}
-        shouldBlur={shouldBlur}
-        metadata={connMetadata}
-        isInbound={isInbound}
-        isProvider={!!isProvider}
-      />
-
-      {/* Provider responded (accepted, outbound = care seeker view) */}
-      {connection!.status === "accepted" && !shouldBlur && otherProfile && !isInbound && (
-        <div className="flex justify-start">
-          <div className="max-w-[85%]">
-            <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-tl-sm px-4 py-3">
-              <p className="text-base leading-relaxed">
-                {otherName} has accepted your connection request. You can now get in touch directly.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Provider accepted (accepted, inbound = provider view) */}
-      {connection!.status === "accepted" && !shouldBlur && isInbound && (
-        <div className="flex justify-end">
-          <div className="max-w-[85%]">
-            <div className="bg-gray-800 text-white rounded-2xl rounded-tr-sm px-4 py-3">
-              <p className="text-base leading-relaxed">
-                You accepted this connection. Reach out to start the conversation.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Thread messages */}
-      {thread.map((msg, i) => {
-        // System messages (e.g. cancellation notes)
-        if (msg.type === "system") {
-          return (
-            <div key={i} className="flex justify-center">
-              <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full">
-                {msg.text}
-              </span>
-            </div>
-          );
-        }
-
-        const isOwn = msg.from_profile_id === activeProfile?.id;
-        const msgDate = new Date(msg.created_at).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        });
-
-        // Next step request messages get special rendering
-        if (msg.type === "next_step_request") {
-          const stepLabel =
-            msg.next_step === "call" ? "Request a call" :
-            msg.next_step === "consultation" ? "Request a consultation" :
-            msg.next_step === "visit" ? "Request a home visit" : "Request";
-          const stepIcon =
-            msg.next_step === "call" ? "\u{1F4DE}" :
-            msg.next_step === "consultation" ? "\u{1FA7A}" :
-            msg.next_step === "visit" ? "\u{1F3E0}" : "\u{1F4CB}";
-
-          return (
-            <div key={i} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-              <div className="max-w-[85%]">
-                <div className={`rounded-2xl px-4 py-3 ${
-                  isOwn
-                    ? "bg-gray-800 text-white rounded-tr-sm"
-                    : "bg-gray-100 text-gray-800 rounded-tl-sm"
-                }`}>
-                  <p className={`text-xs font-semibold mb-1.5 ${
-                    isOwn ? "text-gray-400" : "text-gray-500"
-                  }`}>
-                    {stepIcon} {stepLabel}
-                  </p>
-                  <p className="text-base leading-relaxed">{msg.text}</p>
-                </div>
-                <p className={`text-xs mt-1 ${isOwn ? "text-right" : "text-left"} text-gray-400`}>
-                  {msgDate}
-                </p>
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <div key={i} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+        {/* Connection request bubble */}
+        {!shouldBlur && (
+          <div className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
             <div className="max-w-[85%]">
               <div className={`rounded-2xl px-4 py-3 ${
-                isOwn
-                  ? "bg-gray-800 text-white rounded-tr-sm"
-                  : "bg-gray-100 text-gray-800 rounded-tl-sm"
+                isInbound
+                  ? "bg-gray-100 text-gray-800 rounded-tl-sm"
+                  : "bg-gray-800 text-white rounded-tr-sm"
               }`}>
-                <p className="text-base leading-relaxed">{msg.text}</p>
+                {/* Care type tag */}
+                {parsedMsg?.careType && (
+                  <span className={`inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full mb-2 ${
+                    isInbound ? "bg-gray-200 text-gray-600" : "bg-gray-700 text-gray-300"
+                  }`}>
+                    {parsedMsg.careType}
+                  </span>
+                )}
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${
+                  isInbound ? "text-gray-400" : "text-gray-400"
+                }`}>
+                  {isInbound ? `Request from ${otherName}` : "Your request"}
+                </p>
+                {summary && (
+                  <p className="text-base leading-relaxed">{summary}</p>
+                )}
+                {parsedMsg?.notes && (
+                  <p className={`text-base italic mt-1.5 ${
+                    isInbound ? "text-gray-600" : "text-gray-400"
+                  }`}>
+                    &ldquo;{parsedMsg.notes}&rdquo;
+                  </p>
+                )}
               </div>
-              <p className={`text-xs mt-1 ${isOwn ? "text-right" : "text-left"} text-gray-400`}>
-                {msgDate}
+              <p className={`text-xs mt-1 ${
+                isInbound ? "text-left" : "text-right"
+              } text-gray-400`}>
+                {!isInbound && (
+                  <>
+                    <span className="text-amber-500">{"\u25CF"}</span>{" "}
+                    {profilePercentage}% profile shared{" \u00b7 "}
+                  </>
+                )}
+                {shortDate}
               </p>
             </div>
           </div>
-        );
-      })}
+        )}
 
-      {/* Upgrade Prompt (blurred) */}
-      {shouldBlur && (
-        <div className="py-5">
-          <UpgradePrompt context="view full details and respond" />
-        </div>
-      )}
-    </div>
-  );
+        {/* System banner (replaces old SystemNote pill) */}
+        <SystemBanner
+          connection={connection!}
+          otherName={shouldBlur ? blurName(otherName) : otherName}
+          shouldBlur={shouldBlur}
+          metadata={connMetadata}
+          isInbound={isInbound}
+          isProvider={!!isProvider}
+          careType={parsedMsg?.careType}
+        />
+
+        {/* Acceptance message — warmer, action-oriented copy */}
+        {connection!.status === "accepted" && !shouldBlur && otherProfile && !isInbound && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%]">
+              <div className="bg-emerald-50 text-emerald-900 rounded-2xl rounded-tl-sm px-4 py-3 border border-emerald-100">
+                <p className="text-base leading-relaxed">
+                  Great news &mdash; <strong>{otherName}</strong> accepted your request. Send a message or schedule a call to take the next step.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {connection!.status === "accepted" && !shouldBlur && isInbound && (
+          <div className="flex justify-end">
+            <div className="max-w-[85%]">
+              <div className="bg-emerald-50 text-emerald-900 rounded-2xl rounded-tr-sm px-4 py-3 border border-emerald-100">
+                <p className="text-base leading-relaxed">
+                  You&apos;re connected with <strong>{otherName}</strong>. Send a message to introduce yourself and learn about their care needs.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Empty thread guidance (accepted, no messages yet) */}
+        {connection!.status === "accepted" && !shouldBlur && thread.length === 0 && (
+          <div className="flex justify-center py-2">
+            <p className="text-sm text-gray-400 italic">
+              No messages yet. A quick introduction goes a long way.
+            </p>
+          </div>
+        )}
+
+        {/* Thread messages with date separators */}
+        {thread.map((msg, i) => {
+          const prevDate = i > 0 ? getDateKey(thread[i - 1].created_at) : requestDate;
+          const thisDate = getDateKey(msg.created_at);
+          const showSeparator = thisDate !== prevDate;
+
+          // System messages
+          if (msg.type === "system") {
+            return (
+              <div key={i}>
+                {showSeparator && (
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 border-t border-gray-100" />
+                    <span className="text-xs font-medium text-gray-400">
+                      {formatDateSeparator(msg.created_at)}
+                    </span>
+                    <div className="flex-1 border-t border-gray-100" />
+                  </div>
+                )}
+                <div className="flex justify-center">
+                  <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full">
+                    {msg.text}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
+          const isOwn = msg.from_profile_id === activeProfile?.id;
+          const msgDate = new Date(msg.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          });
+
+          // Next step request — structured card styling
+          if (msg.type === "next_step_request") {
+            const stepLabel =
+              msg.next_step === "call" ? "Call requested" :
+              msg.next_step === "consultation" ? "Consultation requested" :
+              msg.next_step === "visit" ? "Home visit requested" : "Request";
+            const StepIcon = msg.next_step === "call" ? PhoneIcon :
+              msg.next_step === "consultation" ? ClipboardIcon : HomeIcon;
+
+            return (
+              <div key={i}>
+                {showSeparator && (
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 border-t border-gray-100" />
+                    <span className="text-xs font-medium text-gray-400">
+                      {formatDateSeparator(msg.created_at)}
+                    </span>
+                    <div className="flex-1 border-t border-gray-100" />
+                  </div>
+                )}
+                <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                  <div className="max-w-[85%]">
+                    <div className={`rounded-2xl overflow-hidden border ${
+                      isOwn
+                        ? "bg-gray-800 border-gray-700"
+                        : "bg-white border-gray-200"
+                    }`}>
+                      <div className={`flex items-center gap-2 px-4 py-2 border-b ${
+                        isOwn ? "border-gray-700 bg-gray-750" : "border-gray-100 bg-gray-50"
+                      }`}>
+                        <StepIcon className={`w-3.5 h-3.5 ${isOwn ? "text-gray-400" : "text-gray-500"}`} />
+                        <span className={`text-xs font-bold uppercase tracking-wider ${
+                          isOwn ? "text-gray-300" : "text-gray-600"
+                        }`}>
+                          {stepLabel}
+                        </span>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className={`text-base leading-relaxed ${
+                          isOwn ? "text-white" : "text-gray-800"
+                        }`}>{msg.text}</p>
+                      </div>
+                    </div>
+                    <p className={`text-xs mt-1 ${isOwn ? "text-right" : "text-left"} text-gray-400`}>
+                      {msgDate}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div key={i}>
+              {showSeparator && (
+                <div className="flex items-center gap-3 py-1">
+                  <div className="flex-1 border-t border-gray-100" />
+                  <span className="text-xs font-medium text-gray-400">
+                    {formatDateSeparator(msg.created_at)}
+                  </span>
+                  <div className="flex-1 border-t border-gray-100" />
+                </div>
+              )}
+              <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                <div className="max-w-[85%]">
+                  <div className={`rounded-2xl px-4 py-3 ${
+                    isOwn
+                      ? "bg-gray-800 text-white rounded-tr-sm"
+                      : "bg-gray-100 text-gray-800 rounded-tl-sm"
+                  }`}>
+                    <p className="text-base leading-relaxed">{msg.text}</p>
+                  </div>
+                  <p className={`text-xs mt-1 ${isOwn ? "text-right" : "text-left"} text-gray-400`}>
+                    {msgDate}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Upgrade Prompt (blurred) */}
+        {shouldBlur && (
+          <div className="py-5">
+            <UpgradePrompt context="view full details and respond" />
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // ── Message Input ──
   const renderMessageInput = () => {
@@ -964,34 +1092,69 @@ export default function ConnectionDrawer({
     </div>
   );
 
-  // ── Right Column: Next Steps Cards ──
-  const renderNextSteps = () => (
-    <div>
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-        Next Steps
-      </p>
-      <div className="flex flex-col gap-2.5">
-        {nextSteps.map((step) => (
+  // ── Right Column: Next Steps Cards (A10 — primary CTA prominence) ──
+  const renderNextSteps = () => {
+    const primary = nextSteps[0]; // Schedule a Call
+    const secondary = nextSteps.slice(1);
+
+    return (
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          Next Steps
+        </p>
+
+        {/* Nudge prompt */}
+        {!nextStepRequest && (
+          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+            Most families schedule a call within the first day.
+          </p>
+        )}
+
+        {/* Primary CTA */}
+        {primary && (
           <button
-            key={step.id}
             type="button"
             onClick={() => {
-              setNextStepConfirm(step);
+              setNextStepConfirm(primary);
               setNextStepNote("");
             }}
-            className="flex items-center gap-3 w-full px-3 py-3 rounded-xl border border-gray-200 bg-white text-left hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl bg-primary-600 text-white text-left hover:bg-primary-700 transition-colors mb-2.5"
           >
-            <div className={`w-8 h-8 rounded-lg ${step.iconBg} flex items-center justify-center shrink-0`}>{step.icon}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900">{step.label}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
+            <div className="w-8 h-8 rounded-lg bg-primary-500/30 flex items-center justify-center shrink-0">
+              <PhoneIcon className="w-4 h-4 text-white" />
             </div>
-            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">{primary.label}</p>
+              <p className="text-xs text-primary-200 mt-0.5">{primary.desc}</p>
+            </div>
+            <ChevronRightIcon className="w-3.5 h-3.5 text-primary-200 shrink-0" />
           </button>
-        ))}
+        )}
+
+        {/* Secondary options */}
+        <div className="flex flex-col gap-2">
+          {secondary.map((step) => (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => {
+                setNextStepConfirm(step);
+                setNextStepNote("");
+              }}
+              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-left hover:bg-gray-50 transition-colors"
+            >
+              <div className={`w-7 h-7 rounded-lg ${step.iconBg} flex items-center justify-center shrink-0`}>{step.icon}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-700">{step.label}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
+              </div>
+              <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // ── Right Column: Request Status Card ──
   const renderRequestStatus = () => {
@@ -1042,6 +1205,139 @@ export default function ConnectionDrawer({
           >
             {actionLoading ? "..." : "Cancel request"}
           </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Sidebar: Status Header (Rover-inspired) ──
+  const renderStatusHeader = () => {
+    if (!connection) return null;
+
+    let icon: React.ReactNode;
+    let heading: string;
+    let supportText: string;
+    let bgClass: string;
+    let textClass: string;
+    let iconClass: string;
+
+    if (isEnded) {
+      icon = <MinusCircleIcon className="w-6 h-6" />;
+      heading = "Connection ended";
+      supportText = "You can reconnect anytime.";
+      bgClass = "bg-gray-50";
+      textClass = "text-gray-500";
+      iconClass = "text-gray-400";
+    } else if (isWithdrawn) {
+      icon = <MinusCircleIcon className="w-6 h-6" />;
+      heading = "Request withdrawn";
+      supportText = "This request was withdrawn.";
+      bgClass = "bg-gray-50";
+      textClass = "text-gray-500";
+      iconClass = "text-gray-400";
+    } else {
+      switch (connection.status) {
+        case "pending":
+          if (isInbound) {
+            icon = <BellOutlineIcon className="w-6 h-6" />;
+            heading = "New request";
+            const careLabel = parsedMsg?.careType?.toLowerCase() || "care";
+            supportText = `${shouldBlur ? blurName(otherName) : otherName} is looking for ${careLabel}. Review their request and respond.`;
+            bgClass = "bg-amber-50";
+            textClass = "text-amber-800";
+            iconClass = "text-amber-500";
+          } else {
+            icon = <PaperAirplaneIcon className="w-6 h-6" />;
+            heading = isProvider ? "Message sent" : "Request sent";
+            supportText = isProvider
+              ? `Sent to ${otherName}. Waiting for their response.`
+              : `Sent to ${otherName}. Most providers respond within a few hours.`;
+            bgClass = "bg-blue-50";
+            textClass = "text-blue-800";
+            iconClass = "text-blue-500";
+          }
+          break;
+        case "accepted":
+          icon = <CheckCircleIcon className="w-6 h-6" />;
+          heading = "Connected";
+          supportText = isInbound
+            ? `You're connected. Send a message to get started.`
+            : `${otherName} accepted. Send a message or schedule a call.`;
+          bgClass = "bg-emerald-50";
+          textClass = "text-emerald-800";
+          iconClass = "text-emerald-500";
+          break;
+        case "declined":
+          icon = <MinusCircleIcon className="w-6 h-6" />;
+          heading = "Not available";
+          supportText = isInbound
+            ? "You declined this request."
+            : `${otherName} isn't available right now.`;
+          bgClass = "bg-gray-50";
+          textClass = "text-gray-600";
+          iconClass = "text-gray-400";
+          break;
+        case "expired":
+          icon = <MinusCircleIcon className="w-6 h-6" />;
+          heading = "Expired";
+          supportText = "This request expired. No response was received.";
+          bgClass = "bg-gray-50";
+          textClass = "text-gray-500";
+          iconClass = "text-gray-400";
+          break;
+        default:
+          icon = <MinusCircleIcon className="w-6 h-6" />;
+          heading = "Archived";
+          supportText = "";
+          bgClass = "bg-gray-50";
+          textClass = "text-gray-500";
+          iconClass = "text-gray-400";
+      }
+    }
+
+    return (
+      <div className={`rounded-xl p-4 ${bgClass}`}>
+        <div className={`${iconClass} mb-2`}>{icon}</div>
+        <h3 className={`text-base font-bold ${textClass}`}>{heading}</h3>
+        {supportText && (
+          <p className={`text-sm mt-1 leading-relaxed ${textClass} opacity-80`}>{supportText}</p>
+        )}
+      </div>
+    );
+  };
+
+  // ── Sidebar: Request Details (Rover-inspired — persistent structured context) ──
+  const renderRequestDetails = () => {
+    if (!parsedMsg) return null;
+
+    return (
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          Request Details
+        </p>
+        <div className="space-y-2">
+          {parsedMsg.careType && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 w-16 shrink-0">Care</span>
+              <span className="text-sm font-medium text-gray-900">{parsedMsg.careType}</span>
+            </div>
+          )}
+          {parsedMsg.careRecipient && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 w-16 shrink-0">For</span>
+              <span className="text-sm font-medium text-gray-900">{parsedMsg.careRecipient}</span>
+            </div>
+          )}
+          {parsedMsg.urgency && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 w-16 shrink-0">Timing</span>
+              <span className="text-sm font-medium text-gray-900">{parsedMsg.urgency}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 w-16 shrink-0">Sent</span>
+            <span className="text-sm text-gray-600">{shortDate}</span>
+          </div>
         </div>
       </div>
     );
@@ -1307,9 +1603,12 @@ export default function ConnectionDrawer({
                   {renderMessageInput()}
                 </div>
 
-                {/* Right Column — Contact + Next Steps + End Connection */}
+                {/* Right Column — Status + Details + Contact + Next Steps + End */}
                 <div className="w-[280px] shrink-0 overflow-y-auto px-5 py-5 flex flex-col">
                   <div className="space-y-5 flex-1">
+                    {renderStatusHeader()}
+                    {renderRequestDetails()}
+                    <div className="border-t border-gray-100" />
                     {renderContactSection()}
                     <div className="border-t border-gray-100" />
                     {nextStepRequest ? renderRequestStatus() : renderNextSteps()}
@@ -1330,8 +1629,13 @@ export default function ConnectionDrawer({
                 </div>
               </div>
             ) : (
-              /* ═══ SINGLE-COLUMN LAYOUT (Active / Past / Provider) ═══ */
+              /* ═══ SINGLE-COLUMN LAYOUT (Pending / Past) ═══ */
               <>
+                {/* Status header (single-column: above conversation) */}
+                <div className="px-6 pt-4 pb-2 shrink-0">
+                  {renderStatusHeader()}
+                </div>
+
                 <div ref={conversationRef} className="flex-1 overflow-y-auto min-h-0 px-6 py-5">
                   <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                     Conversation
@@ -1539,15 +1843,16 @@ export default function ConnectionDrawer({
   return createPortal(drawerContent, document.body);
 }
 
-// ── System Note ──
+// ── System Banner (Rover-inspired — replaces SystemNote pills) ──
 
-function SystemNote({
+function SystemBanner({
   connection,
   otherName,
   shouldBlur,
   metadata,
   isInbound,
   isProvider,
+  careType,
 }: {
   connection: ConnectionDetail;
   otherName: string;
@@ -1555,49 +1860,67 @@ function SystemNote({
   metadata?: Record<string, unknown>;
   isInbound: boolean;
   isProvider: boolean;
+  careType?: string;
 }) {
   let text: string | null = null;
-  let color = "text-gray-500 bg-gray-100";
+  let bgColor = "bg-gray-50 border-gray-100";
+  let textColor = "text-gray-500";
+  let iconColor = "text-gray-400";
 
   switch (connection.status) {
     case "pending":
       if (isInbound) {
-        // Provider received a family inquiry
-        text = "New connection request";
+        const care = careType?.toLowerCase() || "care";
+        text = `${otherName} is looking for ${care}`;
+        bgColor = "bg-amber-50 border-amber-100";
+        textColor = "text-amber-800";
+        iconColor = "text-amber-500";
       } else {
-        // Outbound — family sent to provider, or provider sent to family
         text = isProvider
-          ? "Sent \u00b7 Waiting for family to respond"
-          : "Sent \u00b7 Providers typically respond within a few hours";
+          ? `Message sent \u00b7 Waiting for ${otherName} to respond`
+          : `Request sent \u00b7 Most providers respond within a few hours`;
+        bgColor = "bg-blue-50 border-blue-100";
+        textColor = "text-blue-700";
+        iconColor = "text-blue-400";
       }
       break;
     case "accepted":
-      text = shouldBlur ? "Responded" : `\u2713 ${otherName} responded`;
-      color = "text-emerald-700 bg-emerald-50";
+      text = shouldBlur
+        ? "Connected"
+        : isInbound
+        ? `Connected \u00b7 Send a message to get started`
+        : `Connected \u00b7 You can now message ${otherName} directly`;
+      bgColor = "bg-emerald-50 border-emerald-100";
+      textColor = "text-emerald-700";
+      iconColor = "text-emerald-500";
       break;
     case "declined":
       text = shouldBlur
         ? "Not available"
         : isInbound
-        ? `You declined this request`
-        : `${otherName} isn\u2019t taking new clients`;
-      color = "text-gray-500 bg-gray-100";
+        ? "You declined this request"
+        : `${otherName} isn\u2019t available right now`;
       break;
     case "archived":
-      text = metadata?.ended ? "You ended this connection" : "Connection archived";
+      text = metadata?.ended
+        ? "Connection ended \u00b7 You can reconnect anytime"
+        : "Connection archived";
       break;
     case "expired":
-      text = metadata?.withdrawn ? "You withdrew this request" : "This request expired";
+      text = metadata?.withdrawn
+        ? "You withdrew this request"
+        : "This request expired \u00b7 No response was received";
       break;
   }
 
   if (!text) return null;
 
   return (
-    <div className="flex justify-center">
-      <span className={`text-sm font-medium px-3 py-1.5 rounded-full ${color}`}>
-        {text}
-      </span>
+    <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border ${bgColor}`}>
+      <svg className={`w-4 h-4 shrink-0 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p className={`text-sm leading-snug ${textColor}`}>{text}</p>
     </div>
   );
 }

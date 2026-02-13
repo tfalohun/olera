@@ -10,7 +10,7 @@ export type FamilyDisplayStatus =
   | "expired"
   | "ended";
 
-export type ConnectionTab = "active" | "responded" | "past";
+export type ConnectionTab = "active" | "connected" | "past";
 
 /**
  * Maps a DB connection to the family-facing display status.
@@ -48,7 +48,7 @@ export function getConnectionTab(
     case "pending":
       return "active";
     case "responded":
-      return "responded";
+      return "connected";
     case "declined":
     case "withdrawn":
     case "expired":
@@ -132,10 +132,10 @@ export const PROVIDER_STATUS_CONFIG: Record<
     dot: "bg-amber-400",
   },
   pending_outbound: {
-    label: "Pending",
-    color: "text-amber-700",
-    bg: "bg-amber-50",
-    dot: "bg-amber-400",
+    label: "Awaiting Reply",
+    color: "text-blue-700",
+    bg: "bg-blue-50",
+    dot: "bg-blue-400",
   },
   connected: {
     label: "Connected",
@@ -176,13 +176,13 @@ export const FAMILY_STATUS_CONFIG: Record<
   { label: string; color: string; bg: string; dot: string }
 > = {
   pending: {
-    label: "Pending",
-    color: "text-amber-700",
-    bg: "bg-amber-50",
-    dot: "bg-amber-400",
+    label: "Awaiting Reply",
+    color: "text-blue-700",
+    bg: "bg-blue-50",
+    dot: "bg-blue-400",
   },
   responded: {
-    label: "Responded",
+    label: "Connected",
     color: "text-emerald-700",
     bg: "bg-emerald-50",
     dot: "bg-emerald-400",

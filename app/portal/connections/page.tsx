@@ -274,7 +274,7 @@ export default function ConnectionsPage() {
   // ── Tab grouping (family view) ──
   const tabbed = useMemo(() => {
     const active: ConnectionWithProfile[] = [];
-    const responded: ConnectionWithProfile[] = [];
+    const connected: ConnectionWithProfile[] = [];
     const past: ConnectionWithProfile[] = [];
 
     for (const c of connections) {
@@ -285,17 +285,17 @@ export default function ConnectionsPage() {
       const tab = getConnectionTab(displayStatus);
 
       if (tab === "active") active.push(c);
-      else if (tab === "responded") responded.push(c);
+      else if (tab === "connected") connected.push(c);
       else past.push(c);
     }
 
-    return { active, responded, past };
+    return { active, connected, past };
   }, [connections]);
 
-  // Unread count for responded tab
+  // Unread count for connected tab
   const unreadCount = useMemo(
-    () => tabbed.responded.filter((c) => isConnectionUnread(c, readIds)).length,
-    [tabbed.responded, readIds]
+    () => tabbed.connected.filter((c) => isConnectionUnread(c, readIds)).length,
+    [tabbed.connected, readIds]
   );
 
   // ── Provider tab grouping ──
@@ -490,7 +490,7 @@ export default function ConnectionsPage() {
 
   const tabs: { id: ConnectionTab; label: string; count: number; badge: number }[] = [
     { id: "active", label: "Active", count: tabbed.active.length, badge: 0 },
-    { id: "responded", label: "Responded", count: tabbed.responded.length, badge: unreadCount },
+    { id: "connected", label: "Connected", count: tabbed.connected.length, badge: unreadCount },
     { id: "past", label: "Past", count: tabbed.past.length, badge: 0 },
   ];
 
@@ -588,10 +588,10 @@ function TabEmptyState({ tab }: { tab: ConnectionTab }) {
       subtitle: "When you reach out to a provider, your pending requests will show up here. Browse providers to get started.",
       cta: { label: "Browse providers", href: "/browse" },
     },
-    responded: {
+    connected: {
       icon: "💬",
-      title: "No responses yet",
-      subtitle: "When a provider replies to your request, their response will appear here. Most providers respond within a few hours.",
+      title: "No connections yet",
+      subtitle: "When a provider accepts your request, your connection will appear here. Most providers respond within a few hours.",
     },
     past: {
       icon: "📂",
