@@ -21,7 +21,7 @@ export default function MatchSortBar({
 }: MatchSortBarProps) {
   return (
     <div className="flex items-center justify-between mb-5">
-      <p className="text-xs text-gray-400">
+      <p className="text-base text-gray-400">
         {matchCount} provider{matchCount !== 1 ? "s" : ""} matched to your
         profile
       </p>
