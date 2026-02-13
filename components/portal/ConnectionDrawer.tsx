@@ -6,7 +6,6 @@ import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useProfileCompleteness } from "@/components/portal/profile/completeness";
 import type { Connection, ConnectionStatus, Profile } from "@/lib/types";
 import Button from "@/components/ui/Button";
 import UpgradePrompt from "@/components/providers/UpgradePrompt";
@@ -230,7 +229,6 @@ export default function ConnectionDrawer({
   onHide,
 }: ConnectionDrawerProps) {
   const { activeProfile, membership, user } = useAuth();
-  const { percentage: profilePercentage } = useProfileCompleteness(activeProfile, user?.email);
   const conversationRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -246,6 +244,7 @@ export default function ConnectionDrawer({
   const [nextStepConfirm, setNextStepConfirm] = useState<NextStepDef | null>(null);
   const [nextStepNote, setNextStepNote] = useState("");
   const [nextStepSending, setNextStepSending] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -996,17 +995,17 @@ export default function ConnectionDrawer({
       );
     }
 
-    // ── Requester view: compact inline status ──
+    // ── Requester view: compact inline status with expectation setting ──
     return (
       <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-amber-50/50 border border-amber-100">
         <div className="min-w-0">
           <p className="text-sm font-medium text-gray-900">
             {nextStepRequest.type === "call" ? "Call" :
              nextStepRequest.type === "consultation" ? "Consultation" :
-             "Home visit"} requested &middot; {timeAgo}
+             "Home visit"} requested
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            Waiting for {otherName} to share availability
+            Waiting for {otherName} &mdash; most respond within a few hours
           </p>
         </div>
         <button
@@ -1273,11 +1272,11 @@ export default function ConnectionDrawer({
 
               {/* ── ACTION BAR: Fixed between conversation and input ── */}
               {isAccepted && !shouldBlur && (
-                <div className="shrink-0 px-6 py-3 border-t border-gray-100">
+                <div className="shrink-0 px-6 py-3 border-t border-gray-100 transition-all duration-200">
                   {nextStepRequest ? (
                     renderRequestStatus()
                   ) : !isProvider ? (
-                    /* Family: Schedule CTA */
+                    /* ── Family: Schedule CTA with contextual microcopy ── */
                     <div>
                       <button
                         type="button"
@@ -1285,30 +1284,61 @@ export default function ConnectionDrawer({
                           setNextStepConfirm(nextSteps[0]);
                           setNextStepNote("");
                         }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 shadow-sm transition-all duration-150"
                       >
                         <PhoneIcon className="w-3.5 h-3.5" />
                         Schedule a Call
                       </button>
+                      <p className="text-xs text-gray-400 text-center mt-2 leading-relaxed">
+                        {thread.length === 0
+                          ? "A quick call is the best way to see if it\u2019s a good fit"
+                          : thread.length <= 3
+                          ? "Ready to take the next step?"
+                          : "You\u2019ve been chatting \u2014 a call can help you decide faster"}
+                      </p>
+                      {/* Progressive disclosure for secondary options */}
                       {nextSteps.length > 1 && (
-                        <div className="flex justify-center gap-4 mt-2">
-                          {nextSteps.slice(1).map((step) => (
-                            <button
-                              key={step.id}
-                              type="button"
-                              onClick={() => {
-                                setNextStepConfirm(step);
-                                setNextStepNote("");
-                              }}
-                              className="text-xs font-medium text-gray-500 hover:text-primary-600 transition-colors"
-                            >
-                              {step.label}
-                            </button>
-                          ))}
+                        <div className="mt-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setShowMoreOptions(!showMoreOptions)}
+                            className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors inline-flex items-center gap-1"
+                          >
+                            Other options
+                            <svg className={`w-3 h-3 transition-transform duration-150 ${showMoreOptions ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {showMoreOptions && (
+                            <div className="flex justify-center gap-4 mt-2">
+                              {nextSteps.slice(1).map((step) => (
+                                <button
+                                  key={step.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setNextStepConfirm(step);
+                                    setNextStepNote("");
+                                  }}
+                                  className="text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                                >
+                                  {step.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  ) : null}
+                  ) : (
+                    /* ── Provider: Soft contextual guidance ── */
+                    <p className="text-xs text-gray-400 text-center italic leading-relaxed">
+                      {thread.length === 0
+                        ? "Introduce yourself and share what makes your care approach unique"
+                        : thread.length <= 3
+                        ? "Families often appreciate knowing your availability and rates"
+                        : "This family seems interested \u2014 let them know you\u2019re available for a call"}
+                    </p>
+                  )}
                 </div>
               )}
 
