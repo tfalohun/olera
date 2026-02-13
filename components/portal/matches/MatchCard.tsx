@@ -63,7 +63,7 @@ export default function MatchCard({
   return (
     <div className="w-full rounded-2xl overflow-hidden bg-white shadow-lg border border-gray-100">
       {/* Photo area */}
-      <div className="relative h-[320px] bg-gray-100">
+      <div className="relative h-[280px] bg-gray-100">
         {primaryImage ? (
           <Image
             src={primaryImage}
@@ -81,17 +81,17 @@ export default function MatchCard({
         {/* Gradient overlay */}
         <div className="absolute bottom-0 left-0 right-0 h-[120px] bg-gradient-to-t from-black/60 to-transparent" />
 
-        {/* Category + Name + Location — stacked to avoid overlap */}
-        <div className="absolute bottom-3.5 left-5 right-5 flex flex-col gap-1.5">
+        {/* Category + Name + Location — stacked compact */}
+        <div className="absolute bottom-3 left-4 right-4 flex flex-col gap-0.5">
           <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/45 backdrop-blur-sm text-[11px] font-semibold text-white uppercase tracking-wide">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/45 backdrop-blur-sm text-[11px] font-semibold text-white uppercase tracking-wide">
               {categoryDisplay}
             </span>
           </div>
-          <p className="text-[22px] font-bold text-white mb-0.5 drop-shadow-sm truncate">
+          <p className="text-[20px] font-bold text-white drop-shadow-sm truncate">
             {provider.provider_name}
           </p>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-white/85">
               <svg
                 width="13"
@@ -119,9 +119,9 @@ export default function MatchCard({
       </div>
 
       {/* Details section */}
-      <div className="px-5 py-4">
+      <div className="px-4 py-3">
         {/* Rating + view profile */}
-        <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             {/* Shield icon */}
             <svg

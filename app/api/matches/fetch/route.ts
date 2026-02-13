@@ -48,7 +48,7 @@ function normalizeState(raw: string): string {
 }
 
 const MATCH_COLUMNS =
-  "provider_id, provider_name, provider_logo, provider_images, provider_category, provider_description, city, state, google_rating, lower_price, upper_price";
+  "provider_id, provider_name, provider_logo, provider_images, provider_category, provider_description, city, state, google_rating, lower_price, upper_price, contact_for_price";
 
 /**
  * POST /api/matches/fetch
