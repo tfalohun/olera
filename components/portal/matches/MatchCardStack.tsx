@@ -11,6 +11,7 @@ interface MatchCardStackProps {
   onDismiss: (provider: Provider) => void;
   onConnect: (provider: Provider) => void;
   onViewProfile: (provider: Provider) => void;
+  onRefresh?: () => void;
   isLoading: boolean;
 }
 
@@ -21,11 +22,23 @@ export default function MatchCardStack({
   onDismiss,
   onConnect,
   onViewProfile,
+  onRefresh,
   isLoading,
 }: MatchCardStackProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [animDirection, setAnimDirection] = useState<AnimDirection>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const prevProvidersRef = useRef(providers);
+
+  // Reset index when providers array changes (e.g. after refresh)
+  useEffect(() => {
+    if (providers !== prevProvidersRef.current && providers.length > 0) {
+      setCurrentIndex(0);
+      setRefreshing(false);
+    }
+    prevProvidersRef.current = providers;
+  }, [providers]);
 
   const provider = providers[currentIndex];
   const nextProvider = providers[currentIndex + 1];
@@ -145,7 +158,15 @@ export default function MatchCardStack({
   }
 
   if (providers.length === 0 || isExhausted) {
-    return <MatchExhaustedState />;
+    const handleRefresh = onRefresh
+      ? () => {
+          setRefreshing(true);
+          onRefresh();
+        }
+      : undefined;
+    return (
+      <MatchExhaustedState onRefresh={handleRefresh} refreshing={refreshing} />
+    );
   }
 
   // Animation classes

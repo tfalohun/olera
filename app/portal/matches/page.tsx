@@ -246,6 +246,7 @@ export default function MatchesPage() {
                     onDismiss={handleDismiss}
                     onConnect={handleConnect}
                     onViewProfile={handleViewProfile}
+                    onRefresh={() => fetchMatches(sort)}
                     isLoading={loading}
                   />
                 </div>
