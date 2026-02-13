@@ -963,7 +963,7 @@ export default function ConnectionDrawer({
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
         Next Steps
       </p>
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2">
         {nextSteps.map((step) => (
           <button
             key={step.id}
@@ -972,11 +972,11 @@ export default function ConnectionDrawer({
               setNextStepConfirm(step);
               setNextStepNote("");
             }}
-            className="flex items-center gap-3 w-full h-[52px] px-3.5 rounded-xl border border-gray-200 bg-white text-left hover:border-primary-200 hover:bg-primary-25 transition-all group"
+            className="flex items-center gap-3 w-full min-h-[48px] px-4 py-3 rounded-xl bg-gray-50 text-left hover:bg-gray-100 transition-colors group"
           >
-            <div className={`w-8 h-8 rounded-lg ${step.iconBg} flex items-center justify-center shrink-0`}>{step.icon}</div>
-            <p className="flex-1 min-w-0 text-sm font-semibold text-gray-900">{step.label}</p>
-            <ChevronRightIcon className="w-3.5 h-3.5 text-gray-300 group-hover:text-primary-500 transition-colors shrink-0" />
+            <div className="shrink-0 text-primary-600">{step.icon}</div>
+            <p className="flex-1 min-w-0 text-[13px] font-medium text-gray-700 leading-tight">{step.label}</p>
+            <ChevronRightIcon className="w-3 h-3 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" />
           </button>
         ))}
       </div>

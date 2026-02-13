@@ -71,12 +71,11 @@ export async function POST() {
         .select("id, display_name, phone, email, website")
         .in("id", allIds);
 
-      const needsContact = (connectedProfiles ?? []).find(
-        (p) => !p.phone && !p.email && !p.website
-      );
-
-      if (needsContact) {
-        const name = (needsContact.display_name || "provider").toLowerCase().replace(/[^a-z0-9]/g, "");
+      // Force-set contact info on the first connected provider
+      // (even if they have partial data from iOS import)
+      const firstProfile = (connectedProfiles ?? [])[0];
+      if (firstProfile) {
+        const name = (firstProfile.display_name || "provider").toLowerCase().replace(/[^a-z0-9]/g, "");
         await supabase
           .from("business_profiles")
           .update({
@@ -84,8 +83,8 @@ export async function POST() {
             email: `care@${name}.com`,
             website: `https://www.${name}.com`,
           })
-          .eq("id", needsContact.id);
-        backfilledContactId = needsContact.id;
+          .eq("id", firstProfile.id);
+        backfilledContactId = firstProfile.id;
       }
     }
 
