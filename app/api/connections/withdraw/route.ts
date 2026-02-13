@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/admin";
 
 /**
  * POST /api/connections/withdraw
@@ -76,7 +77,9 @@ export async function POST(request: Request) {
     // Update status to expired with withdrawn metadata
     const existingMeta =
       (connection.metadata as Record<string, unknown>) || {};
-    const { error: updateError } = await supabase
+    // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
+    const adminDb = getServiceClient();
+    const { error: updateError } = await adminDb
       .from("connections")
       .update({
         status: "expired",

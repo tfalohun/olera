@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/admin";
 
 /**
  * POST /api/connections/respond
@@ -86,8 +87,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Update status
-    const { error: updateError } = await supabase
+    // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
+    const adminDb = getServiceClient();
+    const { error: updateError } = await adminDb
       .from("connections")
       .update({ status: action })
       .eq("id", connectionId);

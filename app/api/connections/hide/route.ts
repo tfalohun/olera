@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/admin";
 
 /**
  * POST /api/connections/hide
@@ -77,7 +78,9 @@ export async function POST(request: Request) {
     // Set hidden flag in metadata
     const existingMeta =
       (connection.metadata as Record<string, unknown>) || {};
-    const { error: updateError } = await supabase
+    // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
+    const adminDb = getServiceClient();
+    const { error: updateError } = await adminDb
       .from("connections")
       .update({
         metadata: { ...existingMeta, hidden: true },

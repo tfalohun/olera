@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/admin";
 
 interface ThreadMessage {
   from_profile_id: string;
@@ -99,7 +100,9 @@ export async function POST(request: Request) {
 
     const updatedThread = [...existingThread, endMessage];
 
-    const { error: updateError } = await supabase
+    // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
+    const adminDb = getServiceClient();
+    const { error: updateError } = await adminDb
       .from("connections")
       .update({
         status: "archived",
