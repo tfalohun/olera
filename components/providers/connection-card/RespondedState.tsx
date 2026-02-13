@@ -10,7 +10,6 @@ interface RespondedStateProps {
 }
 
 export default function RespondedState({
-  providerName,
   phone,
   requestDate,
 }: RespondedStateProps) {
@@ -23,9 +22,9 @@ export default function RespondedState({
 
   return (
     <>
-      {/* Celebratory banner */}
-      <div className="px-4 py-5 bg-emerald-50 rounded-[10px] text-center mb-4 border border-emerald-100">
-        <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+      {/* Status banner */}
+      <div className="flex items-center gap-3 px-4 py-4 bg-emerald-50 rounded-[10px] mb-4 border border-emerald-100">
+        <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
           <svg
             width="20"
             height="20"
@@ -40,12 +39,14 @@ export default function RespondedState({
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <p className="text-sm font-semibold text-gray-900 mb-1">
-          {providerName} responded
-        </p>
-        <p className="text-[13px] text-gray-500">
-          on {dateStr} &middot; Check your connections to view their response.
-        </p>
+        <div>
+          <p className="text-sm font-semibold text-gray-900">
+            Connected &middot; {dateStr}
+          </p>
+          <p className="text-[13px] text-emerald-600 font-medium">
+            Response received
+          </p>
+        </div>
       </div>
 
       {/* Phone — fully revealed */}

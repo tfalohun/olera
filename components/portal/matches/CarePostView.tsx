@@ -180,146 +180,152 @@ export default function CarePostView({
 
     return (
       <div className="max-w-[560px]">
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          {/* Back button + Title + helper text */}
-          <div className="px-6 pt-5 pb-4">
-            <button
-              onClick={() => setStep("empty")}
-              className="flex items-center gap-1.5 mb-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-8rem)]">
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {/* Back button + Title + helper text */}
+            <div className="px-6 pt-5 pb-4">
+              <button
+                onClick={() => setStep("empty")}
+                className="flex items-center gap-1.5 mb-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
               >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              Back
-            </button>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">
-              Review your care post
-            </h3>
-            <p className="text-sm text-gray-500">
-              This is what providers will see. Make sure everything looks right
-              before publishing.
-            </p>
-          </div>
-
-          {/* Profile header */}
-          <div className="px-6 py-5 border-t border-gray-100">
-            <div className="flex items-center gap-2.5">
-              <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500 border-2 border-dashed border-gray-300">
-                {initials}
-              </div>
-              <div>
-                <p className="text-base font-semibold text-gray-900">
-                  {activeProfile.display_name || "Your name"}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {profileLocation || "Location not set"} · Family care seeker
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Fields */}
-          <div className="px-6 py-5">
-            {reviewFields.map((f, i) => (
-              <div
-                key={i}
-                className={[
-                  "flex items-start justify-between py-2.5",
-                  i < reviewFields.length - 1
-                    ? "border-b border-gray-100"
-                    : "",
-                ].join(" ")}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-400">{f.label}</span>
-                    {f.required && (
-                      <span className="text-[9px] text-amber-600 font-bold">
-                        REQUIRED
-                      </span>
-                    )}
-                  </div>
-                  <p
-                    className={[
-                      "text-sm mt-0.5",
-                      f.value
-                        ? "text-gray-800 font-medium"
-                        : "text-gray-400 italic",
-                    ].join(" ")}
-                  >
-                    {f.value || "Not set yet"}
-                  </p>
-                </div>
-                {f.value ? (
-                  <CheckIcon />
-                ) : (
-                  <Link
-                    href="/portal/profile"
-                    className="text-xs text-primary-600 font-semibold hover:text-primary-700"
-                  >
-                    + Add
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Completeness + privacy */}
-          <div className="px-6 pb-5">
-            <div className="flex items-center gap-2 px-3.5 py-3 bg-primary-50 rounded-xl mb-3">
-              <div className="w-9 h-1.5 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-                <div
-                  className="h-full rounded-full bg-primary-600"
-                  style={{ width: `${percentage}%` }}
-                />
-              </div>
-              <span className="text-xs text-primary-600 font-semibold">
-                {percentage}% complete
-              </span>
-              <Link
-                href="/portal/profile"
-                className="text-xs text-primary-600 font-medium ml-auto underline underline-offset-2 decoration-primary-600/30 hover:text-primary-700"
-              >
-                Edit profile
-              </Link>
-            </div>
-
-            <div className="flex items-start gap-2 px-3.5 py-2.5 bg-amber-50/50 rounded-xl border border-amber-100/50">
-              <span className="text-sm flex-shrink-0">👁</span>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                Providers in your area who match your care type will see this
-                post. Your email and phone are only shared when you accept a
-                connection.
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Back
+              </button>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">
+                Review your care post
+              </h3>
+              <p className="text-sm text-gray-500">
+                This is what providers will see. Make sure everything looks right
+                before publishing.
               </p>
             </div>
+
+            {/* Profile header */}
+            <div className="px-6 py-5 border-t border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500 border-2 border-dashed border-gray-300">
+                  {initials}
+                </div>
+                <div>
+                  <p className="text-base font-semibold text-gray-900">
+                    {activeProfile.display_name || "Your name"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {profileLocation || "Location not set"} · Family care seeker
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Fields */}
+            <div className="px-6 py-5">
+              {reviewFields.map((f, i) => (
+                <div
+                  key={i}
+                  className={[
+                    "flex items-start justify-between py-2.5",
+                    i < reviewFields.length - 1
+                      ? "border-b border-gray-100"
+                      : "",
+                  ].join(" ")}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400">{f.label}</span>
+                      {f.required && (
+                        <span className="text-[9px] text-amber-600 font-bold">
+                          REQUIRED
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={[
+                        "text-sm mt-0.5",
+                        f.value
+                          ? "text-gray-800 font-medium"
+                          : "text-gray-400 italic",
+                      ].join(" ")}
+                    >
+                      {f.value || "Not set yet"}
+                    </p>
+                  </div>
+                  {f.value ? (
+                    <CheckIcon />
+                  ) : (
+                    <Link
+                      href="/portal/profile"
+                      className="text-xs text-primary-600 font-semibold hover:text-primary-700"
+                    >
+                      + Add
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setStep("empty")}
-              className="flex-1 border border-gray-200"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handlePublish}
-              loading={publishing}
-              className="flex-[2]"
-            >
-              Publish Post
-            </Button>
+          {/* Sticky footer — always visible */}
+          <div className="flex-shrink-0 border-t border-gray-200">
+            {/* Completeness + privacy */}
+            <div className="px-6 pt-4 pb-3">
+              <div className="flex items-center gap-2 px-3.5 py-3 bg-primary-50 rounded-xl mb-3">
+                <div className="w-9 h-1.5 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                  <div
+                    className="h-full rounded-full bg-primary-600"
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+                <span className="text-xs text-primary-600 font-semibold">
+                  {percentage}% complete
+                </span>
+                <Link
+                  href="/portal/profile"
+                  className="text-xs text-primary-600 font-medium ml-auto underline underline-offset-2 decoration-primary-600/30 hover:text-primary-700"
+                >
+                  Edit profile
+                </Link>
+              </div>
+
+              <div className="flex items-start gap-2 px-3.5 py-2.5 bg-amber-50/50 rounded-xl border border-amber-100/50">
+                <span className="text-sm flex-shrink-0">👁</span>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Providers in your area who match your care type will see this
+                  post. Your email and phone are only shared when you accept a
+                  connection.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStep("empty")}
+                className="flex-1 border border-gray-200"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePublish}
+                loading={publishing}
+                className="flex-[2]"
+              >
+                Publish Post
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -337,72 +343,80 @@ export default function CarePostView({
 
   return (
     <div className="max-w-[560px]">
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        {/* Status bar */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary-600" />
-            <span className="text-sm font-semibold text-primary-600">
-              Active care post
-            </span>
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-8rem)]">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {/* Status bar */}
+          <div className="flex items-center justify-between px-6 pt-5 pb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-primary-600" />
+              <span className="text-sm font-semibold text-primary-600">
+                Active care post
+              </span>
+            </div>
+            <span className="text-xs text-gray-400">Posted {publishedDate}</span>
           </div>
-          <span className="text-xs text-gray-400">Posted {publishedDate}</span>
+
+          <div className="px-6 pb-5">
+            {/* Title */}
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              {careTypeDisplay || "Care"} for{" "}
+              {relationshipDisplay?.toLowerCase() || "a loved one"}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              {profileLocation || "Location not set"}
+              {timelineDisplay && ` · Needed ${timelineDisplay.toLowerCase()}`}
+            </p>
+
+            {/* Details */}
+            <div className="flex flex-col gap-2.5">
+              {activeFields.map((f, i) => (
+                <div
+                  key={i}
+                  className={[
+                    "flex justify-between items-start py-2",
+                    i < activeFields.length - 1
+                      ? "border-b border-gray-100"
+                      : "",
+                  ].join(" ")}
+                >
+                  <span className="text-xs text-gray-400 min-w-[80px]">
+                    {f.label}
+                  </span>
+                  <span className="text-sm text-gray-800 font-medium text-right flex-1">
+                    {f.value || "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="px-6 pb-6">
-          {/* Title */}
-          <h3 className="text-lg font-bold text-gray-900 mb-1">
-            {careTypeDisplay || "Care"} for{" "}
-            {relationshipDisplay?.toLowerCase() || "a loved one"}
-          </h3>
-          <p className="text-sm text-gray-500 mb-4">
-            {profileLocation || "Location not set"}
-            {timelineDisplay && ` · Needed ${timelineDisplay.toLowerCase()}`}
-          </p>
-
-          {/* Details */}
-          <div className="flex flex-col gap-2.5 mb-4">
-            {activeFields.map((f, i) => (
-              <div
-                key={i}
-                className={[
-                  "flex justify-between items-start py-2",
-                  i < activeFields.length - 1
-                    ? "border-b border-gray-100"
-                    : "",
-                ].join(" ")}
-              >
-                <span className="text-xs text-gray-400 min-w-[80px]">
-                  {f.label}
-                </span>
-                <span className="text-sm text-gray-800 font-medium text-right flex-1">
-                  {f.value || "—"}
-                </span>
+        {/* Sticky footer — always visible */}
+        <div className="flex-shrink-0 border-t border-gray-200">
+          <div className="px-6 pt-4 pb-3">
+            {/* Completeness */}
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-primary-50 rounded-lg">
+              <div className="w-10 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary-600"
+                  style={{ width: `${percentage}%` }}
+                />
               </div>
-            ))}
-          </div>
-
-          {/* Completeness */}
-          <div className="flex items-center gap-2 px-3.5 py-2.5 bg-primary-50 rounded-lg mb-4">
-            <div className="w-10 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-primary-600"
-                style={{ width: `${percentage}%` }}
-              />
+              <span className="text-xs text-primary-600 font-semibold">
+                {percentage}% profile shared
+              </span>
+              <Link
+                href="/portal/profile"
+                className="text-xs text-primary-600 font-medium ml-auto underline underline-offset-2 decoration-primary-600/30 hover:text-primary-700"
+              >
+                Edit profile
+              </Link>
             </div>
-            <span className="text-xs text-primary-600 font-semibold">
-              {percentage}% profile shared
-            </span>
-            <Link
-              href="/portal/profile"
-              className="text-xs text-primary-600 font-medium ml-auto underline underline-offset-2 decoration-primary-600/30 hover:text-primary-700"
-            >
-              Edit profile
-            </Link>
           </div>
 
           {/* Edit / Deactivate buttons */}
-          <div className="flex gap-2.5">
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-2.5">
             <Link href="/portal/profile" className="flex-1">
               <button className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                 <PencilIcon /> Edit post
@@ -416,16 +430,6 @@ export default function CarePostView({
               {deactivating ? "..." : "Deactivate"}
             </button>
           </div>
-        </div>
-
-        {/* View connections link */}
-        <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
-          <Link
-            href="/portal/connections"
-            className="block w-full text-center px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
-          >
-            View all in My Connections →
-          </Link>
         </div>
       </div>
     </div>
