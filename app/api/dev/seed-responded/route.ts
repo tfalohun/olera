@@ -52,6 +52,33 @@ export async function POST() {
       (existingConnections ?? []).map((c) => c.to_profile_id as string)
     );
 
+    // Backfill contact info on already-connected providers missing it
+    let backfilledContactId: string | null = null;
+    if (existingProviderIds.size > 0) {
+      const existingIds = Array.from(existingProviderIds);
+      const { data: connectedProfiles } = await supabase
+        .from("business_profiles")
+        .select("id, display_name, phone, email, website")
+        .in("id", existingIds);
+
+      const needsContact = (connectedProfiles ?? []).find(
+        (p) => !p.phone && !p.email && !p.website
+      );
+
+      if (needsContact) {
+        const name = (needsContact.display_name || "provider").toLowerCase().replace(/[^a-z0-9]/g, "");
+        await supabase
+          .from("business_profiles")
+          .update({
+            phone: "(713) 555-0142",
+            email: `care@${name}.com`,
+            website: `https://www.${name}.com`,
+          })
+          .eq("id", needsContact.id);
+        backfilledContactId = needsContact.id;
+      }
+    }
+
     // Find provider profiles (type "organization")
     const { data: providers, error: providerError } = await supabase
       .from("business_profiles")
@@ -75,13 +102,15 @@ export async function POST() {
     const selectedProviders = eligibleProviders.slice(0, 3);
 
     if (selectedProviders.length === 0) {
-      return NextResponse.json(
-        {
-          error:
-            "No eligible providers found (all may already have connections, or none have images)",
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        status: "already_seeded",
+        count: 0,
+        connectionIds: [],
+        backfilledContactId,
+        message: backfilledContactId
+          ? "No new connections needed. Contact info backfilled on one provider."
+          : "All providers already have connections.",
+      });
     }
 
     // Realistic seed data per connection
@@ -244,6 +273,7 @@ export async function POST() {
       status: "seeded",
       count: insertedIds.length,
       connectionIds: insertedIds,
+      backfilledContactId,
       providers: selectedProviders.map((p) => ({
         profile_id: p.id,
         name: p.display_name,
