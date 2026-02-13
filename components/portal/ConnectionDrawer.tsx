@@ -228,7 +228,6 @@ export default function ConnectionDrawer({
   const [nextStepConfirm, setNextStepConfirm] = useState<NextStepDef | null>(null);
   const [nextStepNote, setNextStepNote] = useState("");
   const [nextStepSending, setNextStepSending] = useState(false);
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [inlineSuccess, setInlineSuccess] = useState<string | null>(null);
   const [confirmCancelNextStep, setConfirmCancelNextStep] = useState(false);
 
@@ -398,7 +397,6 @@ export default function ConnectionDrawer({
     setMessageText("");
     setNextStepConfirm(null);
     setNextStepNote("");
-    setShowMoreOptions(false);
     setInlineSuccess(null);
     setConfirmCancelNextStep(false);
   }, [isOpen, connectionId]);
@@ -717,72 +715,32 @@ export default function ConnectionDrawer({
     otherProfile?.category === "home_care_agency" ||
     otherProfile?.category === "home_health_agency";
 
-  // Next steps definitions — contextual primary action based on provider type
-  const nextSteps: NextStepDef[] = isHomeCareProvider
-    ? [
-        {
-          id: "visit",
-          label: "Request a home visit",
-          desc: "See the care environment firsthand",
-          msg: "would like to request a home visit",
-          emoji: "\u{1F3E0}",
-          cardBg: "bg-amber-50",
-          cardBorder: "border-amber-200",
-          iconBg: "bg-amber-50",
-          iconBorder: "border-amber-200",
-          icon: <HomeIcon className="w-4 h-4 text-amber-700" />,
-        },
-        {
-          id: "consultation",
-          label: "Request a consultation",
-          desc: "Meet in person or virtually to assess fit",
-          msg: "would like to request a consultation",
-          emoji: "\u{1FA7A}",
-          cardBg: "bg-green-50",
-          cardBorder: "border-green-200",
-          iconBg: "bg-green-50",
-          iconBorder: "border-green-200",
-          icon: <ClipboardIcon className="w-4 h-4 text-green-700" />,
-        },
-        {
-          id: "call",
-          label: "Schedule a call",
-          desc: "Talk directly to discuss care needs",
-          msg: "would like to schedule a phone call",
-          emoji: "\u{1F4DE}",
-          cardBg: "bg-primary-50",
-          cardBorder: "border-primary-200",
-          iconBg: "bg-primary-50",
-          iconBorder: "border-primary-200",
-          icon: <PhoneIcon className="w-4 h-4 text-primary-600" />,
-        },
-      ]
-    : [
-        {
-          id: "consultation",
-          label: "Request a consultation",
-          desc: "Meet in person or virtually to assess fit",
-          msg: "would like to request a consultation",
-          emoji: "\u{1FA7A}",
-          cardBg: "bg-green-50",
-          cardBorder: "border-green-200",
-          iconBg: "bg-green-50",
-          iconBorder: "border-green-200",
-          icon: <ClipboardIcon className="w-4 h-4 text-green-700" />,
-        },
-        {
-          id: "call",
-          label: "Schedule a call",
-          desc: "Talk directly to discuss care needs",
-          msg: "would like to schedule a phone call",
-          emoji: "\u{1F4DE}",
-          cardBg: "bg-primary-50",
-          cardBorder: "border-primary-200",
-          iconBg: "bg-primary-50",
-          iconBorder: "border-primary-200",
-          icon: <PhoneIcon className="w-4 h-4 text-primary-600" />,
-        },
-      ];
+  // Primary next step — contextual based on provider type
+  const primaryNextStep: NextStepDef = isHomeCareProvider
+    ? {
+        id: "visit",
+        label: "Request a home visit",
+        desc: "See the care environment firsthand",
+        msg: "would like to request a home visit",
+        emoji: "\u{1F3E0}",
+        cardBg: "bg-amber-50",
+        cardBorder: "border-amber-200",
+        iconBg: "bg-amber-50",
+        iconBorder: "border-amber-200",
+        icon: <HomeIcon className="w-4 h-4 text-amber-700" />,
+      }
+    : {
+        id: "consultation",
+        label: "Request a consultation",
+        desc: "Meet in person or virtually to assess fit",
+        msg: "would like to request a consultation",
+        emoji: "\u{1FA7A}",
+        cardBg: "bg-green-50",
+        cardBorder: "border-green-200",
+        iconBg: "bg-green-50",
+        iconBorder: "border-green-200",
+        icon: <ClipboardIcon className="w-4 h-4 text-green-700" />,
+      };
 
   // ── Date separator helpers ──
   const formatDateSeparator = (dateStr: string) => {
@@ -797,23 +755,21 @@ export default function ConnectionDrawer({
     const requestDate = connection?.created_at ? getDateKey(connection.created_at) : "";
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         {/* Family's note (if any) as the first message */}
         {!shouldBlur && parsedMsg?.notes && (
           <>
-            <div className="flex items-center gap-3 py-1">
-              <div className="flex-1 border-t border-gray-100" />
-              <span className="text-xs font-medium text-gray-400">
+            <div className="flex justify-center py-1">
+              <span className="text-[11px] font-medium text-gray-400">
                 {connection?.created_at ? formatDateSeparator(connection.created_at) : ""}
               </span>
-              <div className="flex-1 border-t border-gray-100" />
             </div>
             <div className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
               <div className="max-w-[85%]">
                 <div className={`rounded-2xl px-4 py-3 ${
                   isInbound
                     ? "bg-gray-100 text-gray-800 rounded-tl-sm"
-                    : "bg-gray-800 text-white rounded-tr-sm"
+                    : "bg-primary-800 text-white rounded-tr-sm"
                 }`}>
                   <p className="text-sm leading-relaxed">{parsedMsg.notes}</p>
                 </div>
@@ -852,12 +808,10 @@ export default function ConnectionDrawer({
             return (
               <div key={i}>
                 {showSeparator && (
-                  <div className="flex items-center gap-3 py-1">
-                    <div className="flex-1 border-t border-gray-100" />
-                    <span className="text-xs font-medium text-gray-400">
+                  <div className="flex justify-center py-1">
+                    <span className="text-[11px] font-medium text-gray-400">
                       {formatDateSeparator(msg.created_at)}
                     </span>
-                    <div className="flex-1 border-t border-gray-100" />
                   </div>
                 )}
                 <div className="flex justify-center">
@@ -889,12 +843,10 @@ export default function ConnectionDrawer({
             return (
               <div key={i}>
                 {showSeparator && (
-                  <div className="flex items-center gap-3 py-1">
-                    <div className="flex-1 border-t border-gray-100" />
-                    <span className="text-xs font-medium text-gray-400">
+                  <div className="flex justify-center py-1">
+                    <span className="text-[11px] font-medium text-gray-400">
                       {formatDateSeparator(msg.created_at)}
                     </span>
-                    <div className="flex-1 border-t border-gray-100" />
                   </div>
                 )}
                 <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -1077,12 +1029,12 @@ export default function ConnectionDrawer({
         onClick={() => onCloseRef.current()}
       />
 
-      {/* Panel — always single-column 480px */}
+      {/* Panel — always single-column 540px */}
       <div
-        className={`absolute right-0 top-0 h-full w-full bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out max-w-[480px] ${visible ? "translate-x-0" : "translate-x-full"}`}
+        className={`absolute right-0 top-0 h-full w-full bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out max-w-[540px] ${visible ? "translate-x-0" : "translate-x-full"}`}
       >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between shrink-0">
+        <div className="px-7 py-5 border-b border-gray-200 flex items-center justify-between shrink-0">
           <h3 className="text-xl font-bold text-gray-900">Connection</h3>
           <button
             type="button"
@@ -1105,7 +1057,7 @@ export default function ConnectionDrawer({
 
         {/* Error (no connection) */}
         {error && !connection && (
-          <div className="px-6 py-8 shrink-0">
+          <div className="px-7 py-8 shrink-0">
             <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-base">
               {error}
             </div>
@@ -1115,7 +1067,7 @@ export default function ConnectionDrawer({
         {connection && !loading && (
           <>
             {/* ── HEADER: Who + Status + Profile Link + Contact ── */}
-            <div className="px-6 pt-5 pb-4 shrink-0">
+            <div className="px-7 pt-5 pb-4 shrink-0">
               <div className="flex items-start gap-4">
                 {/* Avatar */}
                 <div className="shrink-0">
@@ -1218,7 +1170,7 @@ export default function ConnectionDrawer({
 
             {/* ── CONTEXT CARD: Pinned request summary ── */}
             {parsedMsg && !shouldBlur && (
-              <div className="px-6 pb-3 shrink-0">
+              <div className="px-7 pb-3 shrink-0">
                 <div className="bg-gray-50 rounded-xl px-4 py-3">
                   <p className="text-sm text-gray-700 leading-relaxed">
                     {[parsedMsg.careType, parsedMsg.careRecipient ? `For ${parsedMsg.careRecipient}` : null, parsedMsg.urgency].filter(Boolean).join(" \u00b7 ")}
@@ -1240,7 +1192,7 @@ export default function ConnectionDrawer({
             )}
 
             {/* ── CONVERSATION ── */}
-            <div ref={conversationRef} className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
+            <div ref={conversationRef} className="flex-1 overflow-y-auto min-h-0 px-7 py-4">
               {renderConversation()}
             </div>
 
@@ -1292,45 +1244,14 @@ export default function ConnectionDrawer({
                   </div>
                 ) : (
                   /* Idle — single action card */
-                  <>
-                    <div
-                      onClick={() => { setNextStepConfirm(nextSteps[0]); setNextStepNote(""); }}
-                      className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all hover:shadow-sm ${nextSteps[0].cardBg} ${nextSteps[0].cardBorder}`}
-                    >
-                      <span className="text-base">{nextSteps[0].emoji}</span>
-                      <span className="flex-1 text-[13px] font-semibold text-gray-900">{nextSteps[0].label}</span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-                    </div>
-                    {/* Secondary options */}
-                    {nextSteps.length > 1 && (
-                      <div className="mt-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setShowMoreOptions(!showMoreOptions)}
-                          className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors inline-flex items-center gap-1"
-                        >
-                          Other options
-                          <svg className={`w-3 h-3 transition-transform duration-150 ${showMoreOptions ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {showMoreOptions && (
-                          <div className="flex justify-center gap-4 mt-2">
-                            {nextSteps.slice(1).map((step) => (
-                              <button
-                                key={step.id}
-                                type="button"
-                                onClick={() => { setNextStepConfirm(step); setNextStepNote(""); }}
-                                className="text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
-                              >
-                                {step.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
+                  <div
+                    onClick={() => { setNextStepConfirm(primaryNextStep); setNextStepNote(""); }}
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all hover:shadow-sm ${primaryNextStep.cardBg} ${primaryNextStep.cardBorder}`}
+                  >
+                    <span className="text-base">{primaryNextStep.emoji}</span>
+                    <span className="flex-1 text-[13px] font-semibold text-gray-900">{primaryNextStep.label}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+                  </div>
                 )}
               </div>
             )}
@@ -1562,7 +1483,7 @@ export default function ConnectionDrawer({
 
             {/* ── Error ── */}
             {error && (
-              <div className="shrink-0 px-6 pb-5">
+              <div className="shrink-0 px-7 pb-5">
                 <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-base">
                   {error}
                 </div>
