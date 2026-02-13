@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
@@ -17,10 +16,20 @@ const TIMELINE_LABELS: Record<string, string> = {
   exploring: "Just exploring",
 };
 
+interface ExistingConnection {
+  to_profile_id: string;
+  status: string;
+}
+
 export default function DiscoverFamiliesPage() {
   const { activeProfile, membership } = useAuth();
   const [families, setFamilies] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [existingConnections, setExistingConnections] = useState<
+    Map<string, ExistingConnection>
+  >(new Map());
 
   const isProvider =
     activeProfile?.type === "organization" ||
@@ -39,28 +48,73 @@ export default function DiscoverFamiliesPage() {
       return;
     }
 
-    const fetchFamilies = async () => {
+    const fetchData = async () => {
       try {
         const supabase = createClient();
-        const { data, error } = await supabase
-          .from("business_profiles")
-          .select("id, display_name, city, state, type, care_types, metadata, image_url, slug")
-          .eq("type", "family")
-          .eq("is_active", true)
-          .order("created_at", { ascending: false })
-          .limit(50);
 
-        if (error) console.error("[olera] discover families error:", error.message);
-        setFamilies((data as Profile[]) || []);
+        // Fetch families and existing outbound connections in parallel
+        const [familiesRes, connectionsRes] = await Promise.all([
+          supabase
+            .from("business_profiles")
+            .select(
+              "id, display_name, city, state, type, care_types, metadata, image_url, slug"
+            )
+            .eq("type", "family")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false })
+            .limit(50),
+          supabase
+            .from("connections")
+            .select("to_profile_id, status")
+            .eq("from_profile_id", profileId)
+            .neq("type", "save"),
+        ]);
+
+        if (familiesRes.error) {
+          console.error(
+            "[olera] discover families error:",
+            familiesRes.error.message
+          );
+          setError(familiesRes.error.message);
+        }
+        setFamilies((familiesRes.data as Profile[]) || []);
+
+        // Build a map of existing connections by target profile
+        if (connectionsRes.data) {
+          const map = new Map<string, ExistingConnection>();
+          for (const c of connectionsRes.data) {
+            map.set(c.to_profile_id, c);
+          }
+          setExistingConnections(map);
+        }
       } catch (err) {
         console.error("[olera] discover families failed:", err);
+        setError("Failed to load families.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchFamilies();
+    fetchData();
   }, [profileId, isProvider]);
+
+  // Client-side search filter
+  const filtered = useMemo(() => {
+    if (!search.trim()) return families;
+    const q = search.toLowerCase();
+    return families.filter((f) => {
+      const name = f.display_name?.toLowerCase() || "";
+      const city = f.city?.toLowerCase() || "";
+      const state = f.state?.toLowerCase() || "";
+      const careTypes = (f.care_types || []).join(" ").toLowerCase();
+      return (
+        name.includes(q) ||
+        city.includes(q) ||
+        state.includes(q) ||
+        careTypes.includes(q)
+      );
+    });
+  }, [families, search]);
 
   if (!isProvider) {
     return (
@@ -82,38 +136,93 @@ export default function DiscoverFamiliesPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
+      <div className="mb-6">
+        <h1 className="text-[22px] font-bold text-gray-900">
           Families Looking for Care
         </h1>
-        <p className="text-lg text-gray-600 mt-1">
+        <p className="text-sm text-gray-500 mt-1">
           Connect with families in your area who are looking for care services.
         </p>
       </div>
 
+      {error && (
+        <div
+          className="mb-6 bg-red-50 text-red-700 px-4 py-3 rounded-xl text-base flex items-center justify-between"
+          role="alert"
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setLoading(true);
+              // Re-trigger useEffect by toggling
+              setFamilies([]);
+            }}
+            className="text-sm font-medium text-red-700 hover:text-red-800 underline ml-4"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {!hasAccess && (
-        <div className="mb-8">
+        <div className="mb-6">
           <UpgradePrompt context="browse family profiles and initiate contact" />
         </div>
       )}
 
-      {families.length === 0 ? (
+      {/* Search */}
+      {families.length > 0 && (
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, city, or care type..."
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors"
+            />
+          </div>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
         <EmptyState
-          title="No families found"
-          description="Families who sign up will appear here."
+          title={search ? "No families match your search" : "No families found"}
+          description={
+            search
+              ? "Try adjusting your search terms."
+              : "Families who sign up will appear here."
+          }
         />
       ) : (
         <>
-          <p className="text-base text-gray-500 mb-6">
-            {families.length} famil{families.length !== 1 ? "ies" : "y"} found
+          <p className="text-sm text-gray-400 mb-4">
+            {filtered.length} famil{filtered.length !== 1 ? "ies" : "y"}
+            {search ? " matching" : ""}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {families.map((family) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {filtered.map((family) => (
               <FamilyCard
                 key={family.id}
                 family={family}
                 hasAccess={hasAccess}
                 fromProfileId={activeProfile?.id}
+                existingConnection={existingConnections.get(family.id)}
               />
             ))}
           </div>
@@ -127,10 +236,12 @@ function FamilyCard({
   family,
   hasAccess,
   fromProfileId,
+  existingConnection,
 }: {
   family: Profile;
   hasAccess: boolean;
   fromProfileId?: string;
+  existingConnection?: ExistingConnection;
 }) {
   const meta = family.metadata as FamilyMetadata;
   const locationStr = [family.city, family.state].filter(Boolean).join(", ");
@@ -138,81 +249,118 @@ function FamilyCard({
     ? TIMELINE_LABELS[meta.timeline] || meta.timeline
     : null;
   const careNeeds = meta?.care_needs || family.care_types || [];
+  const initial = family.display_name?.charAt(0).toUpperCase() || "?";
 
-  const cardBody = (
-    <>
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 bg-secondary-100 text-secondary-700 rounded-full flex items-center justify-center text-sm font-semibold">
-          {hasAccess ? family.display_name.charAt(0).toUpperCase() : "?"}
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            {hasAccess ? family.display_name : blurName(family.display_name)}
-          </h3>
-          {locationStr && (
-            <p className="text-sm text-gray-500">
-              {hasAccess ? locationStr : "***"}
-            </p>
-          )}
-        </div>
-      </div>
+  // Deterministic gradient for avatar
+  const gradients = [
+    "linear-gradient(135deg, #0ea5e9, #6366f1)",
+    "linear-gradient(135deg, #14b8a6, #0ea5e9)",
+    "linear-gradient(135deg, #8b5cf6, #ec4899)",
+    "linear-gradient(135deg, #f59e0b, #ef4444)",
+    "linear-gradient(135deg, #10b981, #14b8a6)",
+    "linear-gradient(135deg, #6366f1, #a855f7)",
+  ];
+  let hash = 0;
+  for (let i = 0; i < family.display_name.length; i++) {
+    hash = family.display_name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const gradient = gradients[Math.abs(hash) % gradients.length];
 
-      {timeline && (
-        <p className="text-base text-gray-600 mb-2">
-          <span className="font-medium">Timeline:</span> {timeline}
-        </p>
-      )}
-
-      {careNeeds.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {careNeeds.map((need) => (
-            <span
-              key={need}
-              className="bg-secondary-50 text-secondary-700 text-xs px-2.5 py-1 rounded-full"
-            >
-              {need}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {!hasAccess && (
-        <p className="text-sm text-warm-600 font-medium mt-3">
-          Upgrade to Pro to view full details and reach out.
-        </p>
-      )}
-
-      {hasAccess && (
-        <p className="mt-3 text-primary-600 font-medium text-sm">
-          View profile &rarr;
-        </p>
-      )}
-    </>
-  );
+  const alreadyConnected = !!existingConnection;
+  const connectionStatus = existingConnection?.status;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-md hover:border-primary-200 transition-shadow duration-200 cursor-pointer">
-      {hasAccess ? (
-        <Link href={`/profile/${family.id}`} target="_blank" className="block p-6">
-          {cardBody}
-        </Link>
-      ) : (
-        <div className="p-6">{cardBody}</div>
-      )}
-
-      {hasAccess && fromProfileId && (
-        <div className="px-6 pb-6 -mt-2">
-          <ConnectButton
-            fromProfileId={fromProfileId}
-            toProfileId={family.id}
-            toName={family.display_name}
-            connectionType="inquiry"
-            label="Initiate Contact"
-            sentLabel="Contact Sent"
-            fullWidth
-          />
+    <div className="bg-white rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+      <div className="p-5">
+        <div className="flex items-start gap-3.5 mb-3">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-bold text-white shrink-0"
+            style={{ background: hasAccess ? gradient : "#9ca3af" }}
+          >
+            {hasAccess ? initial : "?"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-semibold text-gray-900 leading-snug">
+              {hasAccess ? family.display_name : blurName(family.display_name)}
+            </h3>
+            {locationStr && (
+              <p className="text-sm text-gray-500 mt-0.5">
+                {hasAccess ? locationStr : "***"}
+              </p>
+            )}
+          </div>
+          {/* Connection status indicator */}
+          {alreadyConnected && (
+            <span
+              className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 ${
+                connectionStatus === "accepted"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : connectionStatus === "pending"
+                  ? "bg-amber-50 text-amber-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  connectionStatus === "accepted"
+                    ? "bg-emerald-400"
+                    : connectionStatus === "pending"
+                    ? "bg-amber-400"
+                    : "bg-gray-400"
+                }`}
+              />
+              {connectionStatus === "accepted"
+                ? "Connected"
+                : connectionStatus === "pending"
+                ? "Pending"
+                : connectionStatus === "declined"
+                ? "Declined"
+                : "Sent"}
+            </span>
+          )}
         </div>
-      )}
+
+        {timeline && hasAccess && (
+          <p className="text-sm text-gray-600 mb-2">
+            <span className="font-medium text-gray-500">Timeline:</span>{" "}
+            {timeline}
+          </p>
+        )}
+
+        {careNeeds.length > 0 && hasAccess && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {careNeeds.map((need) => (
+              <span
+                key={need}
+                className="bg-gray-100 text-gray-600 text-xs px-2.5 py-1 rounded-lg"
+              >
+                {need}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {!hasAccess && (
+          <p className="text-sm text-warm-600 font-medium mt-3">
+            Upgrade to Pro to view full details and reach out.
+          </p>
+        )}
+
+        {hasAccess && fromProfileId && !alreadyConnected && (
+          <div className="mt-3">
+            <ConnectButton
+              fromProfileId={fromProfileId}
+              toProfileId={family.id}
+              toName={family.display_name}
+              toProfileType="family"
+              connectionType="inquiry"
+              label="Connect"
+              sentLabel="Request Sent"
+              fullWidth
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

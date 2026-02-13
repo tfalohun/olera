@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
@@ -96,7 +95,6 @@ function persistReadIds(ids: Set<string>) {
 
 export default function ConnectionsPage() {
   const { activeProfile, membership } = useAuth();
-  const router = useRouter();
   const [connections, setConnections] = useState<ConnectionWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -321,7 +319,7 @@ export default function ConnectionsPage() {
     );
   }
 
-  // ── Provider view (preserved) ──
+  // ── Provider view ──
 
   if (isProvider) {
     return (
@@ -333,10 +331,23 @@ export default function ConnectionsPage() {
           </div>
         )}
 
+        {/* Header */}
+        <div>
+          <h2 className="text-[22px] font-bold text-gray-900">Connections</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Manage inquiries from families and your outreach.
+          </p>
+        </div>
+
         {connections.length === 0 ? (
           <EmptyState
             title="No connections yet"
-            description="When families or caregivers reach out, their connections will appear here."
+            description="When families reach out or you connect with them, their requests will appear here."
+            action={
+              <Link href="/portal/discover/families">
+                <Button>Discover Families</Button>
+              </Link>
+            }
           />
         ) : (
           <div>
@@ -364,7 +375,7 @@ export default function ConnectionsPage() {
           </div>
         )}
 
-        <ConnectionDrawer connectionId={drawerConnectionId} isOpen={drawerOpen} onClose={closeDrawer} onStatusChange={handleStatusChange} />
+        <ConnectionDrawer connectionId={drawerConnectionId} isOpen={drawerOpen} onClose={closeDrawer} onStatusChange={handleStatusChange} onWithdraw={handleWithdraw} onHide={handleHide} />
       </div>
     );
   }
@@ -616,7 +627,10 @@ function groupConnections(
   const past: ConnectionWithProfile[] = [];
 
   for (const c of connections) {
-    if (c.status === "declined" || c.status === "archived") {
+    // Hide soft-deleted connections
+    if (c.metadata?.hidden) continue;
+
+    if (c.status === "declined" || c.status === "archived" || c.status === "expired") {
       past.push(c);
     } else if (isProvider) {
       const isInbound = c.to_profile_id === activeProfileId;
@@ -711,13 +725,15 @@ function ProviderConnectionCard({
     .join(", ");
 
   const parsedMsg = parseMessage(connection.message);
+  const directionLabel = isInbound ? "Received" : "Sent";
   const careTypeLabel = parsedMsg?.careType || connection.type.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 
   const statusBadge: Record<string, { variant: "default" | "pending" | "verified" | "trial"; label: string }> = {
     pending: { variant: "pending", label: "Pending" },
-    accepted: { variant: "verified", label: "Responded" },
+    accepted: { variant: "verified", label: "Connected" },
     declined: { variant: "default", label: "Declined" },
     archived: { variant: "default", label: "Archived" },
+    expired: { variant: "default", label: "Expired" },
   };
   const badge = statusBadge[connection.status] || statusBadge.pending;
 
@@ -760,7 +776,9 @@ function ProviderConnectionCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-xs text-gray-400 leading-tight">{careTypeLabel}</p>
+                <p className="text-xs text-gray-400 leading-tight">
+                  {directionLabel} &middot; {careTypeLabel}
+                </p>
                 <div className="flex items-center gap-1.5">
                   {variant === "attention" && (
                     <svg className="w-3.5 h-3.5 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">

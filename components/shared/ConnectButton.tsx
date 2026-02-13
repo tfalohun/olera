@@ -21,6 +21,8 @@ interface ConnectButtonProps {
   toProfileId: string;
   /** Display name of the target (for confirmation UI). */
   toName: string;
+  /** Profile type of the target — used to allow provider→family inquiries. */
+  toProfileType?: "organization" | "caregiver" | "family";
   /** Type of connection to create. */
   connectionType: ConnectionType;
   /** Button label when not yet sent. */
@@ -58,6 +60,7 @@ export default function ConnectButton({
   fromProfileId,
   toProfileId,
   toName,
+  toProfileType,
   connectionType,
   label = "Connect",
   sentLabel = "Connected",
@@ -192,9 +195,10 @@ export default function ConnectButton({
     // Provider-to-provider care inquiry guard:
     // Orgs/caregivers can't send care consultation inquiries to other providers.
     // They must switch to a family profile for care requests.
+    // However, providers CAN send inquiries to families (reaching out about care needs).
     const isProviderProfile =
       activeProfile?.type === "organization" || activeProfile?.type === "caregiver";
-    if (isProviderProfile && connectionType === "inquiry") {
+    if (isProviderProfile && connectionType === "inquiry" && toProfileType !== "family") {
       setModal({ kind: "wrong-profile-type" });
       return;
     }

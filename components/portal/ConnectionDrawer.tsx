@@ -677,7 +677,11 @@ export default function ConnectionDrawer({
     !shouldBlur;
 
   const messagePlaceholder =
-    connection?.status === "accepted" ? "Reply to provider..." : "Add a message...";
+    connection?.status === "accepted"
+      ? isProvider
+        ? "Reply to family..."
+        : "Reply to provider..."
+      : "Add a message...";
 
   // Whether provider is home care / home health (show home visit option)
   const isHomeCareProvider =
@@ -768,6 +772,8 @@ export default function ConnectionDrawer({
         otherName={shouldBlur ? blurName(otherName) : otherName}
         shouldBlur={shouldBlur}
         metadata={connMetadata}
+        isInbound={isInbound}
+        isProvider={!!isProvider}
       />
 
       {/* Provider responded (accepted, outbound = care seeker view) */}
@@ -1223,7 +1229,7 @@ export default function ConnectionDrawer({
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
                       >
-                        View provider profile
+                        View {otherProfile.type === "family" ? "family" : "provider"} profile
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
@@ -1504,25 +1510,41 @@ function SystemNote({
   otherName,
   shouldBlur,
   metadata,
+  isInbound,
+  isProvider,
 }: {
   connection: ConnectionDetail;
   otherName: string;
   shouldBlur: boolean;
   metadata?: Record<string, unknown>;
+  isInbound: boolean;
+  isProvider: boolean;
 }) {
   let text: string | null = null;
   let color = "text-gray-500 bg-gray-100";
 
   switch (connection.status) {
     case "pending":
-      text = "Sent \u00b7 Providers typically respond within a few hours";
+      if (isInbound) {
+        // Provider received a family inquiry
+        text = "New connection request";
+      } else {
+        // Outbound — family sent to provider, or provider sent to family
+        text = isProvider
+          ? "Sent \u00b7 Waiting for family to respond"
+          : "Sent \u00b7 Providers typically respond within a few hours";
+      }
       break;
     case "accepted":
-      text = shouldBlur ? "Provider responded" : `\u2713 ${otherName} responded`;
+      text = shouldBlur ? "Responded" : `\u2713 ${otherName} responded`;
       color = "text-emerald-700 bg-emerald-50";
       break;
     case "declined":
-      text = shouldBlur ? "Provider isn\u2019t taking new clients" : `${otherName} isn\u2019t taking new clients`;
+      text = shouldBlur
+        ? "Not available"
+        : isInbound
+        ? `You declined this request`
+        : `${otherName} isn\u2019t taking new clients`;
       color = "text-gray-500 bg-gray-100";
       break;
     case "archived":
