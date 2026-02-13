@@ -332,6 +332,67 @@ export default function ConnectionDrawer({
     fetchConnection();
   }, [isOpen, connectionId, activeProfile]);
 
+  // Real-time subscription + polling fallback: listen for changes to this connection
+  useEffect(() => {
+    if (!isOpen || !connectionId || !isSupabaseConfigured()) return;
+
+    const supabase = createClient();
+
+    // Real-time subscription (works once `connections` is added to supabase_realtime publication)
+    const channel = supabase
+      .channel(`connection-${connectionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "connections",
+          filter: `id=eq.${connectionId}`,
+        },
+        (payload) => {
+          const updated = payload.new as Connection;
+          setConnection((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              status: updated.status,
+              metadata: updated.metadata,
+              updated_at: updated.updated_at,
+            };
+          });
+        }
+      )
+      .subscribe();
+
+    // Polling fallback: re-fetch every 10 seconds to catch changes even without realtime
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from("connections")
+        .select("status, metadata, updated_at")
+        .eq("id", connectionId)
+        .single();
+
+      if (data) {
+        setConnection((prev) => {
+          if (!prev) return prev;
+          // Only update if something actually changed
+          if (prev.updated_at === data.updated_at) return prev;
+          return {
+            ...prev,
+            status: data.status,
+            metadata: data.metadata as Record<string, unknown> | undefined,
+            updated_at: data.updated_at,
+          };
+        });
+      }
+    }, 10_000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
+  }, [isOpen, connectionId]);
+
   // Keyboard dismiss
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onCloseRef.current();
@@ -360,13 +421,18 @@ export default function ConnectionDrawer({
 
     setResponding(true);
     try {
-      const supabase = createClient();
-      const { error: updateError } = await supabase
-        .from("connections")
-        .update({ status: newStatus })
-        .eq("id", connection.id);
-
-      if (updateError) throw new Error(updateError.message);
+      const res = await fetch("/api/connections/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          connectionId: connection.id,
+          action: newStatus,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update");
+      }
       setConnection((prev) =>
         prev ? { ...prev, status: newStatus } : null
       );

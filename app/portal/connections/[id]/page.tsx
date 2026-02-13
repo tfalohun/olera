@@ -102,14 +102,18 @@ export default function ConnectionDetailPage() {
 
     setResponding(true);
     try {
-      const supabase = createClient();
-      const { error: updateError } = await supabase
-        .from("connections")
-        .update({ status: newStatus })
-        .eq("id", connection.id)
-        .or(`to_profile_id.eq.${activeProfile.id},from_profile_id.eq.${activeProfile.id}`);
-
-      if (updateError) throw new Error(updateError.message);
+      const res = await fetch("/api/connections/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          connectionId: connection.id,
+          action: newStatus,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update");
+      }
 
       setConnection((prev) => prev ? { ...prev, status: newStatus } : null);
     } catch (err: unknown) {

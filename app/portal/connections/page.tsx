@@ -231,6 +231,46 @@ export default function ConnectionsPage() {
     fetchConnections();
   }, [fetchConnections]);
 
+  // ── Real-time subscription + polling: re-fetch when any connection changes ──
+  useEffect(() => {
+    if (!activeProfile || !isSupabaseConfigured()) return;
+
+    const supabase = createClient();
+
+    // Real-time subscription (works once `connections` is in supabase_realtime publication)
+    const channel = supabase
+      .channel("connections-list")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "connections",
+          filter: `to_profile_id=eq.${activeProfile.id}`,
+        },
+        () => { fetchConnections(); }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "connections",
+          filter: `from_profile_id=eq.${activeProfile.id}`,
+        },
+        () => { fetchConnections(); }
+      )
+      .subscribe();
+
+    // Polling fallback: re-fetch every 15 seconds to catch changes even without realtime
+    const poll = setInterval(() => { fetchConnections(); }, 15_000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
+  }, [activeProfile, fetchConnections]);
+
   // ── Tab grouping (family view) ──
   const tabbed = useMemo(() => {
     const active: ConnectionWithProfile[] = [];
@@ -305,6 +345,8 @@ export default function ConnectionsPage() {
   const closeDrawer = () => {
     setDrawerOpen(false);
     setTimeout(() => setDrawerConnectionId(null), 300);
+    // Re-fetch to ensure list reflects any changes made in the drawer
+    fetchConnections();
   };
 
   const handleStatusChange = (connectionId: string, newStatus: string) => {
@@ -313,6 +355,8 @@ export default function ConnectionsPage() {
         c.id === connectionId ? { ...c, status: newStatus as Connection["status"] } : c
       )
     );
+    // Also re-fetch to ensure DB state is reflected
+    fetchConnections();
   };
 
   const handleWithdraw = (connectionId: string) => {
