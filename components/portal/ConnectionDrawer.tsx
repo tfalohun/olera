@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { canEngage } from "@/lib/membership";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useProfileCompleteness } from "@/components/portal/profile/completeness";
@@ -243,6 +243,27 @@ export default function ConnectionDrawer({
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
+  // Server-side fetch (bypasses all RLS) — used for initial load and polling
+  const fetchConnectionFromServer = useCallback(async (connId: string): Promise<ConnectionDetail | null> => {
+    try {
+      const res = await fetch("/api/connections/get", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId: connId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error("[ConnectionDrawer] fetch error:", data.error);
+        return null;
+      }
+      const data = await res.json();
+      return data.connection as ConnectionDetail;
+    } catch (err) {
+      console.error("[ConnectionDrawer] fetch error:", err);
+      return null;
+    }
+  }, []);
+
   // Fetch connection data when opened
   useEffect(() => {
     if (!isOpen || !connectionId || !activeProfile || !isSupabaseConfigured()) {
@@ -254,144 +275,47 @@ export default function ConnectionDrawer({
     setConnection(null);
     setConfirmAction(null);
 
-    const fetchConnection = async () => {
-      const supabase = createClient();
-
-      const { data, error: fetchError } = await supabase
-        .from("connections")
-        .select(
-          "id, type, status, from_profile_id, to_profile_id, message, metadata, created_at, updated_at"
-        )
-        .eq("id", connectionId)
-        .single();
-
-      if (fetchError || !data) {
+    const loadConnection = async () => {
+      const conn = await fetchConnectionFromServer(connectionId);
+      if (!conn) {
         setError("Connection not found.");
         setLoading(false);
         return;
       }
-
-      const conn = data as Connection;
-
-      if (
-        conn.from_profile_id !== activeProfile.id &&
-        conn.to_profile_id !== activeProfile.id
-      ) {
-        setError("Connection not found.");
-        setLoading(false);
-        return;
-      }
-
-      const profileIds = [conn.from_profile_id, conn.to_profile_id];
-      const { data: profileData } = await supabase
-        .from("business_profiles")
-        .select(
-          "id, display_name, description, image_url, city, state, type, email, phone, website, slug, care_types, category, source_provider_id"
-        )
-        .in("id", profileIds);
-
-      let profiles = (profileData as Profile[]) || [];
-
-      // For profiles missing image_url, try to get image from iOS olera-providers
-      const missingImageIds = profiles
-        .filter((p) => !p.image_url && p.source_provider_id)
-        .map((p) => p.source_provider_id as string);
-
-      if (missingImageIds.length > 0) {
-        const { data: iosProviders } = await supabase
-          .from("olera-providers")
-          .select("provider_id, provider_logo, provider_images")
-          .in("provider_id", missingImageIds);
-
-        if (iosProviders?.length) {
-          const iosMap = new Map(
-            iosProviders.map((p: { provider_id: string; provider_logo: string | null; provider_images: string | null }) => [
-              p.provider_id,
-              p.provider_logo || (p.provider_images?.split(" | ")[0]) || null,
-            ])
-          );
-          profiles = profiles.map((p) => {
-            if (!p.image_url && p.source_provider_id && iosMap.has(p.source_provider_id)) {
-              return { ...p, image_url: iosMap.get(p.source_provider_id) || null };
-            }
-            return p;
-          });
-        }
-      }
-
-      const profileMap = new Map(profiles.map((p) => [p.id, p]));
-
-      setConnection({
-        ...conn,
-        fromProfile: profileMap.get(conn.from_profile_id) || null,
-        toProfile: profileMap.get(conn.to_profile_id) || null,
-      });
+      console.log("[ConnectionDrawer] loaded connection:", conn.id, "status:", conn.status, "thread length:", ((conn.metadata as Record<string, unknown>)?.thread as unknown[] || []).length);
+      setConnection(conn);
       setLoading(false);
     };
 
-    fetchConnection();
-  }, [isOpen, connectionId, activeProfile]);
+    loadConnection();
+  }, [isOpen, connectionId, activeProfile, fetchConnectionFromServer]);
 
-  // Real-time subscription + polling fallback: listen for changes to this connection
+  // Polling: re-fetch from server every 5 seconds to catch changes
   useEffect(() => {
     if (!isOpen || !connectionId || !isSupabaseConfigured()) return;
 
-    const supabase = createClient();
-
-    // Real-time subscription (works once `connections` is added to supabase_realtime publication)
-    const channel = supabase
-      .channel(`connection-${connectionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "connections",
-          filter: `id=eq.${connectionId}`,
-        },
-        (payload) => {
-          const updated = payload.new as Connection;
-          setConnection((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              status: updated.status,
-              metadata: updated.metadata,
-              updated_at: updated.updated_at,
-            };
-          });
-        }
-      )
-      .subscribe();
-
-    // Polling fallback: re-fetch every 10 seconds to catch changes even without realtime
     const poll = setInterval(async () => {
-      const { data } = await supabase
-        .from("connections")
-        .select("status, metadata, updated_at")
-        .eq("id", connectionId)
-        .single();
+      const fresh = await fetchConnectionFromServer(connectionId);
+      if (!fresh) return;
 
-      if (data) {
-        setConnection((prev) => {
-          if (!prev) return prev;
-          // Only update if something actually changed
-          if (prev.updated_at === data.updated_at) return prev;
-          return {
-            ...prev,
-            status: data.status,
-            metadata: data.metadata as Record<string, unknown> | undefined,
-            updated_at: data.updated_at,
-          };
-        });
-      }
-    }, 10_000);
+      setConnection((prev) => {
+        if (!prev) return prev;
+        // Only update if something actually changed
+        if (prev.updated_at === fresh.updated_at) return prev;
+        console.log("[ConnectionDrawer] poll update:", fresh.id, "status:", fresh.status, "thread length:", ((fresh.metadata as Record<string, unknown>)?.thread as unknown[] || []).length);
+        return {
+          ...prev,
+          status: fresh.status,
+          metadata: fresh.metadata,
+          updated_at: fresh.updated_at,
+        };
+      });
+    }, 5_000);
 
     return () => {
-      supabase.removeChannel(channel);
       clearInterval(poll);
     };
-  }, [isOpen, connectionId]);
+  }, [isOpen, connectionId, fetchConnectionFromServer]);
 
   // Keyboard dismiss
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -421,6 +345,7 @@ export default function ConnectionDrawer({
 
     setResponding(true);
     try {
+      console.log("[ConnectionDrawer] status update:", newStatus, "for connection:", connection.id);
       const res = await fetch("/api/connections/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -431,8 +356,11 @@ export default function ConnectionDrawer({
       });
       if (!res.ok) {
         const data = await res.json();
+        console.error("[ConnectionDrawer] status update failed:", res.status, data);
         throw new Error(data.error || "Failed to update");
       }
+      const result = await res.json();
+      console.log("[ConnectionDrawer] status updated to:", result.status);
       setConnection((prev) =>
         prev ? { ...prev, status: newStatus } : null
       );
@@ -525,6 +453,7 @@ export default function ConnectionDrawer({
     if (!connection || !messageText.trim() || !activeProfile) return;
     setSending(true);
     try {
+      console.log("[ConnectionDrawer] sending message to connection:", connection.id);
       const res = await fetch("/api/connections/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -533,8 +462,13 @@ export default function ConnectionDrawer({
           text: messageText.trim(),
         }),
       });
-      if (!res.ok) throw new Error("Failed to send");
+      if (!res.ok) {
+        const errData = await res.json();
+        console.error("[ConnectionDrawer] message send failed:", res.status, errData);
+        throw new Error(errData.error || "Failed to send");
+      }
       const data = await res.json();
+      console.log("[ConnectionDrawer] message sent, thread length:", data.thread?.length);
       setConnection((prev) =>
         prev
           ? {
@@ -553,7 +487,8 @@ export default function ConnectionDrawer({
           behavior: "smooth",
         });
       });
-    } catch {
+    } catch (err) {
+      console.error("[ConnectionDrawer] message error:", err);
       setError("Failed to send message");
     } finally {
       setSending(false);
