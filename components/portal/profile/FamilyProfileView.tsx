@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { BusinessProfile, FamilyMetadata } from "@/lib/types";
-import { useProfileCompleteness } from "./completeness";
+import { useProfileCompleteness, type SectionStatus } from "./completeness";
 import ProfileEditDrawer, { BenefitsFinderBanner } from "./ProfileEditDrawer";
 
 const TIMELINE_LABELS: Record<string, string> = {
@@ -32,7 +32,7 @@ export default function FamilyProfileView() {
   const meta = (profile?.metadata || {}) as FamilyMetadata;
   const userEmail = user?.email || "";
 
-  const { percentage, firstIncompleteStep } = useProfileCompleteness(
+  const { percentage, sectionStatus } = useProfileCompleteness(
     profile,
     userEmail
   );
@@ -126,11 +126,20 @@ export default function FamilyProfileView() {
     ? TIMELINE_LABELS[meta.timeline] || meta.timeline
     : null;
 
+  /** Combine steps 4+5+6 into a single "More About" section status */
+  const combineSectionStatus = (): SectionStatus => {
+    const statuses = [sectionStatus[4], sectionStatus[5], sectionStatus[6]].filter(Boolean);
+    if (statuses.length === 0) return "empty";
+    if (statuses.every((s) => s === "complete")) return "complete";
+    if (statuses.every((s) => s === "empty")) return "empty";
+    return "incomplete";
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Profile Header ── */}
-      <section className="bg-white rounded-2xl border border-gray-200 p-6">
-        <div className="flex items-center gap-5">
+      <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="p-6 flex items-center gap-5">
           {/* Avatar */}
           <div className="relative shrink-0">
             <input
@@ -210,68 +219,43 @@ export default function FamilyProfileView() {
             </svg>
           </button>
         </div>
+
+        {/* Completeness row — hidden at 100% */}
+        {percentage < 100 && (
+          <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-[5px] bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    percentage >= 80 ? "bg-primary-600" : "bg-amber-500"
+                  }`}
+                  style={{ width: `${percentage}%` }}
+                />
+              </div>
+              <span className={`text-[13px] font-semibold shrink-0 ${
+                percentage >= 80 ? "text-primary-700" : "text-amber-700"
+              }`}>
+                {percentage}% complete
+              </span>
+            </div>
+          </div>
+        )}
+
         {imageError && (
-          <p className="text-sm text-red-600 mt-3">{imageError}</p>
+          <p className="text-sm text-red-600 px-6 pb-4">{imageError}</p>
         )}
       </section>
 
-      {/* ── Completeness Banner ── */}
-      {percentage < 100 && (
-        <section className="bg-gradient-to-r from-primary-50 to-teal-50 rounded-2xl border border-primary-100 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold text-gray-900">
-              Profile completeness
-            </h3>
-            <span className="text-base font-bold text-primary-700">
-              {percentage}%
-            </span>
-          </div>
-          <div className="w-full h-2.5 bg-white/60 rounded-full overflow-hidden mb-3">
-            <div
-              className="h-full bg-primary-600 rounded-full transition-all duration-500"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-          <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-            Keep your information up to date so providers can understand your
-            needs. Add a photo and payment details to help providers respond
-            faster.
-          </p>
-          <button
-            type="button"
-            onClick={() => openDrawer(firstIncompleteStep)}
-            className="text-base font-semibold text-primary-700 hover:text-primary-800 transition-colors"
-          >
-            Complete your profile &rarr;
-          </button>
-        </section>
-      )}
-
       {/* ── Contact Information ── */}
-      <section className="bg-white rounded-2xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-gray-900">
-            Contact Information
-          </h3>
-          <EditButton onClick={() => openDrawer(1)} />
-        </div>
-        <p className="text-sm text-gray-500 mb-5">
-          How providers can reach you. This is shared when you connect.
-        </p>
-
-        <div className="space-y-4">
-          <ViewRow
-            label="Email"
-            value={profile.email || userEmail || null}
-            onAction={() => openDrawer(1)}
-          />
-          <ViewRow
-            label="Phone"
-            value={profile.phone}
-            emptyText="Not added yet"
-            onAction={() => openDrawer(1)}
-            actionLabel={profile.phone ? "Edit" : "+ Add"}
-          />
+      <SectionCard
+        title="Contact Information"
+        subtitle="How providers can reach you. This is shared when you connect."
+        status={sectionStatus[1]}
+        onEdit={() => openDrawer(1)}
+      >
+        <div className="divide-y divide-gray-100">
+          <ViewRow label="Email" value={profile.email || userEmail || null} />
+          <ViewRow label="Phone" value={profile.phone} />
           <ViewRow
             label="Preferred contact method"
             value={
@@ -280,217 +264,80 @@ export default function FamilyProfileView() {
                   meta.contact_preference
                 : null
             }
-            emptyText="Not set yet"
-            onAction={() => openDrawer(1)}
-            actionLabel={meta.contact_preference ? "Edit" : "+ Add"}
           />
         </div>
-      </section>
+      </SectionCard>
 
       {/* ── Care Preferences ── */}
-      <section className="bg-white rounded-2xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-gray-900">
-            Care Preferences
-          </h3>
-          <EditButton onClick={() => openDrawer(2)} />
+      <SectionCard
+        title="Care Preferences"
+        subtitle="Auto-filled from your connection request. Shared with every provider you connect with."
+        status={sectionStatus[2]}
+        onEdit={() => openDrawer(2)}
+      >
+        <div className="divide-y divide-gray-100">
+          <ViewRow label="Who needs care" value={meta.relationship_to_recipient || null} />
+          <ViewRow label="Type of care" value={careTypesDisplay} />
+          <ViewRow label="Timeline" value={timelineDisplay} />
+          <ViewRow label="Additional notes" value={profile.description || null} />
         </div>
-        <p className="text-sm text-gray-500 mb-5">
-          Auto-filled from your connection request. Shared with every provider
-          you connect with.
-        </p>
-
-        <div className="space-y-4">
-          <ViewRow
-            label="Who needs care"
-            value={meta.relationship_to_recipient || null}
-            onAction={() => openDrawer(2)}
-          />
-          <ViewRow
-            label="Type of care"
-            value={careTypesDisplay}
-            onAction={() => openDrawer(2)}
-          />
-          <ViewRow
-            label="Timeline"
-            value={timelineDisplay}
-            onAction={() => openDrawer(2)}
-          />
-          <ViewRow
-            label="Additional notes"
-            value={profile.description || null}
-            emptyText="None"
-            onAction={() => openDrawer(2)}
-          />
-        </div>
-      </section>
+      </SectionCard>
 
       {/* ── Payment & Benefits ── */}
-      <section className="bg-white rounded-2xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-bold text-gray-900">
-            Payment & Benefits
-          </h3>
-          <EditButton onClick={() => openDrawer(3)} />
-        </div>
-        <p className="text-sm text-gray-500 mb-5">
-          How are you planning to pay for care? Select all that apply.
-        </p>
-
+      <SectionCard
+        title="Payment & Benefits"
+        subtitle="How are you planning to pay for care?"
+        status={sectionStatus[3]}
+        onEdit={() => openDrawer(3)}
+      >
         {meta.payment_methods && meta.payment_methods.length > 0 ? (
           <div className="flex flex-wrap gap-2 mb-4">
             {meta.payment_methods.map((method) => (
               <span
                 key={method}
-                className="px-3.5 py-2 text-base font-medium rounded-full bg-primary-50 text-primary-700 border border-primary-100"
+                className="px-3.5 py-2 text-[15px] font-medium rounded-full bg-primary-50 text-primary-700 border border-primary-100"
               >
                 {method}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-base text-gray-400 italic mb-4">
-            No payment methods selected
-          </p>
+          <p className="text-[15px] text-amber-600 italic mb-4">Not provided</p>
         )}
-
         <BenefitsFinderBanner />
-      </section>
+      </SectionCard>
 
-      {/* ── More About Your Situation (Enrichment) ── */}
-      <section className="bg-white rounded-2xl border border-gray-200 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-1">
-          More About Your Situation
-        </h3>
-        <p className="text-sm text-gray-500 mb-5">
-          Help providers understand your needs better.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <EnrichmentCard
-            icon={
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                />
-              </svg>
-            }
-            label="Living situation"
-            prompt="Where does the person who needs care live?"
-            value={meta.living_situation || null}
-            onClick={() => openDrawer(4)}
-          />
-          <EnrichmentCard
-            icon={
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            }
-            label="Schedule preference"
-            prompt="What times of day do you need care?"
-            value={meta.schedule_preference || null}
-            onClick={() => openDrawer(5)}
-          />
-          <EnrichmentCard
-            icon={
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            }
-            label="Care location"
-            prompt="What area is care needed in?"
-            value={meta.care_location || null}
-            onClick={() => openDrawer(5)}
-          />
-          <EnrichmentCard
-            icon={
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
-                />
-              </svg>
-            }
+      {/* ── More About Your Situation ── */}
+      <SectionCard
+        title="More About Your Situation"
+        subtitle="Help providers understand your needs better."
+        status={combineSectionStatus()}
+        onEdit={() => openDrawer(4)}
+      >
+        <div className="divide-y divide-gray-100">
+          <ViewRow label="Living situation" value={meta.living_situation || null} />
+          <ViewRow label="Schedule preference" value={meta.schedule_preference || null} />
+          <ViewRow label="Care location" value={meta.care_location || null} />
+          <ViewRow
             label="Language preference"
-            prompt="Any language needs for the caregiver?"
             value={
               Array.isArray(meta.language_preference)
                 ? meta.language_preference.join(", ")
                 : meta.language_preference || null
             }
-            onClick={() => openDrawer(6)}
           />
-          <EnrichmentCard
-            icon={
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            }
+          <ViewRow
             label="About the care situation"
-            prompt="Tell providers more about daily life"
             value={
               meta.about_situation
-                ? meta.about_situation.length > 60
-                  ? meta.about_situation.slice(0, 60) + "..."
+                ? meta.about_situation.length > 80
+                  ? meta.about_situation.slice(0, 80) + "..."
                   : meta.about_situation
                 : null
             }
-            onClick={() => openDrawer(6)}
-            fullWidth
           />
         </div>
-      </section>
+      </SectionCard>
 
       {/* ── Edit Drawer ── */}
       <ProfileEditDrawer
@@ -507,96 +354,86 @@ export default function FamilyProfileView() {
 
 // ── Helper Components ──
 
-function EditButton({ onClick }: { onClick: () => void }) {
+function SectionBadge({ status }: { status: SectionStatus | undefined }) {
+  if (!status || status === "complete") {
+    return (
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100">
+        <svg className="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+        </svg>
+      </span>
+    );
+  }
+
+  const label = status === "empty" ? "Not added" : "Incomplete";
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors"
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+      {label}
+    </span>
+  );
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  status,
+  onEdit,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  status: SectionStatus | undefined;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
+  const editLabel = status === "empty" ? "Add \u2192" : "Edit";
+
+  return (
+    <section
+      role="button"
+      tabIndex={0}
+      onClick={onEdit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onEdit();
+        }
+      }}
+      className="bg-white rounded-2xl border border-gray-200 p-6 cursor-pointer hover:border-gray-300 transition-colors"
     >
-      Edit
-    </button>
+      {/* Header row */}
+      <div className="flex items-center gap-2.5 mb-0.5">
+        <h3 className="text-[17px] font-bold text-gray-900">{title}</h3>
+        <SectionBadge status={status} />
+        <span className="ml-auto text-[14px] font-semibold text-primary-600">
+          {editLabel}
+        </span>
+      </div>
+      <p className="text-[13px] text-gray-500 mb-5">{subtitle}</p>
+
+      {/* Content — stop click propagation so internal links/buttons work */}
+      <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </section>
   );
 }
 
 function ViewRow({
   label,
   value,
-  emptyText = "Not set",
-  onAction,
-  actionLabel = "Edit",
 }: {
   label: string;
   value: string | null;
-  emptyText?: string;
-  onAction: () => void;
-  actionLabel?: string;
 }) {
   return (
-    <div className="flex items-center justify-between py-2">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-gray-500">{label}</p>
-        {value ? (
-          <p className="text-base text-gray-900 mt-0.5">{value}</p>
-        ) : (
-          <p className="text-base text-gray-400 italic mt-0.5">{emptyText}</p>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={onAction}
-        className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors shrink-0 ml-4"
-      >
-        {actionLabel}
-      </button>
+    <div className="py-3">
+      <p className="text-[13px] text-gray-500">{label}</p>
+      {value ? (
+        <p className="text-[15px] text-gray-900 mt-0.5">{value}</p>
+      ) : (
+        <p className="text-[15px] text-amber-600 italic mt-0.5">Not provided</p>
+      )}
     </div>
-  );
-}
-
-function EnrichmentCard({
-  icon,
-  label,
-  prompt,
-  value,
-  onClick,
-  fullWidth,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  prompt: string;
-  value: string | null;
-  onClick: () => void;
-  fullWidth?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-left p-4 rounded-xl border transition-all duration-150 group ${
-        value
-          ? "border-primary-100 bg-primary-50/30 hover:bg-primary-50/60"
-          : "border-gray-200 bg-gray-50/50 hover:border-primary-200 hover:bg-primary-50/20"
-      } ${fullWidth ? "sm:col-span-2" : ""}`}
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className={`shrink-0 mt-0.5 ${
-            value ? "text-primary-600" : "text-gray-400 group-hover:text-primary-500"
-          } transition-colors`}
-        >
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-base font-semibold text-gray-800">{label}</p>
-          {value ? (
-            <p className="text-sm text-primary-700 mt-0.5 font-medium">
-              {value}
-            </p>
-          ) : (
-            <p className="text-sm text-gray-400 mt-0.5">{prompt}</p>
-          )}
-        </div>
-      </div>
-    </button>
   );
 }

@@ -1,9 +1,12 @@
 import { useMemo } from "react";
 import type { BusinessProfile, FamilyMetadata } from "@/lib/types";
 
+export type SectionStatus = "complete" | "incomplete" | "empty";
+
 interface CompletenessResult {
   percentage: number;
   firstIncompleteStep: number;
+  sectionStatus: Record<number, SectionStatus>;
 }
 
 const FIELD_CHECKS: {
@@ -39,12 +42,39 @@ const FIELD_CHECKS: {
   { weight: 5, step: 6, check: (p) => !!(p.metadata as FamilyMetadata)?.about_situation },
 ];
 
+function computeSectionStatus(
+  profile: BusinessProfile,
+  userEmail: string | undefined
+): Record<number, SectionStatus> {
+  const result: Record<number, SectionStatus> = {};
+
+  // Group checks by step
+  const byStep = new Map<number, boolean[]>();
+  for (const field of FIELD_CHECKS) {
+    if (!byStep.has(field.step)) byStep.set(field.step, []);
+    byStep.get(field.step)!.push(field.check(profile, userEmail));
+  }
+
+  for (const [step, results] of byStep) {
+    const filled = results.filter(Boolean).length;
+    if (filled === results.length) {
+      result[step] = "complete";
+    } else if (filled === 0) {
+      result[step] = "empty";
+    } else {
+      result[step] = "incomplete";
+    }
+  }
+
+  return result;
+}
+
 export function useProfileCompleteness(
   profile: BusinessProfile | null,
   userEmail?: string
 ): CompletenessResult {
   return useMemo(() => {
-    if (!profile) return { percentage: 0, firstIncompleteStep: 0 };
+    if (!profile) return { percentage: 0, firstIncompleteStep: 0, sectionStatus: {} };
 
     let earned = 0;
     let firstIncomplete = 7; // past the last step means all complete
@@ -60,6 +90,7 @@ export function useProfileCompleteness(
     return {
       percentage: Math.min(earned, 100),
       firstIncompleteStep: firstIncomplete >= 7 ? 0 : firstIncomplete,
+      sectionStatus: computeSectionStatus(profile, userEmail),
     };
   }, [profile, userEmail]);
 }
