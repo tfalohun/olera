@@ -15,6 +15,7 @@ import {
   toCardFormat,
   type ProviderCardData,
 } from "@/lib/types/provider";
+import type { Profile } from "@/lib/types";
 
 const BrowseMap = dynamic(() => import("@/components/browse/BrowseMap"), {
   ssr: false,
@@ -71,6 +72,31 @@ const CARE_TYPE_TO_SUPABASE: Record<string, string> = {
   "nursing-homes": "Nursing Home",
   "independent-living": "Independent Living",
 };
+
+/** Convert a web business_profiles row to ProviderCardData */
+function profileToCardFormat(p: Profile): ProviderCardData {
+  const location = [p.city, p.state].filter(Boolean).join(", ");
+  return {
+    id: p.id,
+    slug: p.slug,
+    name: p.display_name,
+    image: p.image_url || "/placeholder-provider.jpg",
+    images: p.image_url ? [p.image_url] : [],
+    address: location,
+    rating: 0,
+    priceRange: "Contact for pricing",
+    primaryCategory: p.category
+      ? p.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
+      : "Senior Care",
+    careTypes: p.care_types || [],
+    highlights: p.care_types?.slice(0, 2) || [],
+    acceptedPayments: [],
+    verified: p.verification_state === "verified",
+    description: p.description?.slice(0, 100) || undefined,
+    lat: p.lat,
+    lon: p.lng,
+  };
+}
 
 // Helper to get care type label from ID
 function getCareTypeLabel(id: string): string {
@@ -189,22 +215,24 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
   const [providers, setProviders] = useState<ProviderCardData[]>([]);
   const [isLoadingProviders, setIsLoadingProviders] = useState(true);
 
-  // Fetch providers from Supabase
+  // Fetch providers from Supabase (both iOS directory + web-created profiles)
   const fetchProviders = useCallback(async () => {
     setIsLoadingProviders(true);
 
     try {
       const supabase = createClient();
-      let query = supabase
+
+      // ── Query 1: iOS olera-providers ──
+      let iosQuery = supabase
         .from(PROVIDERS_TABLE)
         .select("*")
         .not("deleted", "is", true);
 
-      // Apply care type filter
+      // Apply care type filter (iOS format)
       if (careType && careType !== "all") {
         const supabaseCategory = CARE_TYPE_TO_SUPABASE[careType];
         if (supabaseCategory) {
-          query = query.ilike("provider_category", `%${supabaseCategory}%`);
+          iosQuery = iosQuery.ilike("provider_category", `%${supabaseCategory}%`);
         }
       }
 
@@ -215,25 +243,66 @@ export default function BrowseClient({ careType, searchQuery }: BrowseClientProp
         if (cityStateMatch) {
           const city = cityStateMatch[1].trim();
           const state = cityStateMatch[2].toUpperCase();
-          query = query.ilike("city", `%${city}%`).eq("state", state);
+          iosQuery = iosQuery.ilike("city", `%${city}%`).eq("state", state);
         } else if (/^[A-Z]{2}$/i.test(trimmed)) {
-          query = query.eq("state", trimmed.toUpperCase());
+          iosQuery = iosQuery.eq("state", trimmed.toUpperCase());
         } else {
-          query = query.or(`city.ilike.%${trimmed}%,provider_name.ilike.%${trimmed}%`);
+          iosQuery = iosQuery.or(`city.ilike.%${trimmed}%,provider_name.ilike.%${trimmed}%`);
         }
       }
 
-      // Order by rating and limit
-      const { data, error } = await query
-        .order("google_rating", { ascending: false })
-        .limit(100);
+      iosQuery = iosQuery.order("google_rating", { ascending: false }).limit(100);
 
-      if (error) {
-        console.error("Browse fetch error:", error.message);
-        setProviders([]);
-      } else {
-        setProviders((data as SupabaseProvider[]).map(toCardFormat));
+      // ── Query 2: Web-created business_profiles ──
+      let webQuery = supabase
+        .from("business_profiles")
+        .select("id, slug, display_name, description, image_url, city, state, category, care_types, verification_state, lat, lng, source_provider_id")
+        .in("type", ["organization", "caregiver"])
+        .eq("is_active", true)
+        .is("source_provider_id", null)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      // Apply same location filters to web profiles
+      if (searchLocation) {
+        const trimmed = searchLocation.trim();
+        const cityStateMatch = trimmed.match(/^(.+),\s*([A-Z]{2})$/i);
+        if (cityStateMatch) {
+          const city = cityStateMatch[1].trim();
+          const state = cityStateMatch[2].toUpperCase();
+          webQuery = webQuery.ilike("city", `%${city}%`).eq("state", state);
+        } else if (/^[A-Z]{2}$/i.test(trimmed)) {
+          webQuery = webQuery.eq("state", trimmed.toUpperCase());
+        } else {
+          webQuery = webQuery.or(`city.ilike.%${trimmed}%,display_name.ilike.%${trimmed}%`);
+        }
       }
+
+      // Run both queries in parallel
+      const [iosResult, webResult] = await Promise.all([iosQuery, webQuery]);
+
+      const iosCards = iosResult.error
+        ? []
+        : (iosResult.data as SupabaseProvider[]).map(toCardFormat);
+
+      let webCards = webResult.error
+        ? []
+        : (webResult.data as Profile[]).map(profileToCardFormat);
+
+      // Client-side care type filter for web profiles (naming differs from iOS)
+      if (careType && careType !== "all" && webCards.length > 0) {
+        const filterLabel = careType.replace(/-/g, " ").toLowerCase();
+        webCards = webCards.filter((card) =>
+          card.careTypes.some((ct) => ct.toLowerCase().includes(filterLabel))
+        );
+      }
+
+      if (iosResult.error) {
+        console.error("Browse iOS fetch error:", iosResult.error.message);
+      }
+
+      // Merge: web-created first, then iOS directory
+      setProviders([...webCards, ...iosCards]);
     } catch (err) {
       console.error("Browse page error:", err);
       setProviders([]);
