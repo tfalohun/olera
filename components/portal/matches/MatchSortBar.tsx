@@ -26,7 +26,7 @@ export default function MatchSortBar({
         profile
       </p>
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-gray-400">Sort:</span>
+        <span className="text-base text-gray-400">Sort:</span>
         {SORT_OPTIONS.map((opt) => (
           <button
             key={opt.value}
