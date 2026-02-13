@@ -56,18 +56,18 @@ export default function MatchActions({
       </div>
 
       {/* Keyboard hints */}
-      <p className="text-[11px] text-gray-400">
-        <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono">
+      <p className="text-[13px] text-gray-400">
+        <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
           ←
         </kbd>{" "}
         skip{" "}
         <span className="mx-1">·</span>{" "}
-        <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono">
+        <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
           →
         </kbd>{" "}
         connect{" "}
         <span className="mx-1">·</span>{" "}
-        <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono">
+        <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
           ↑
         </kbd>{" "}
         view profile
