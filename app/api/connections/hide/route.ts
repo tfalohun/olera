@@ -66,8 +66,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
-    // Can only hide past connections (declined, expired/withdrawn, or archived/ended)
-    if (connection.status !== "declined" && connection.status !== "expired" && connection.status !== "archived") {
+    // Can only hide past connections (declined, expired/withdrawn/ended)
+    if (connection.status !== "declined" && connection.status !== "expired") {
       return NextResponse.json(
         { error: "Can only remove past connections" },
         { status: 400 }

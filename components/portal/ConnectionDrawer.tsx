@@ -437,7 +437,7 @@ export default function ConnectionDrawer({
         prev
           ? {
               ...prev,
-              status: "archived" as ConnectionStatus,
+              status: "expired" as ConnectionStatus,
               metadata: {
                 ...((prev.metadata || {}) as Record<string, unknown>),
                 ended: true,
@@ -598,7 +598,7 @@ export default function ConnectionDrawer({
 
   const connMetadata = connection?.metadata as Record<string, unknown> | undefined;
   const isWithdrawn = connection?.status === "expired" && connMetadata?.withdrawn === true;
-  const isEnded = connection?.status === "archived" && connMetadata?.ended === true;
+  const isEnded = connection?.status === "expired" && connMetadata?.ended === true;
   const statusConfig = STATUS_CONFIG[connection?.status || "pending"] || STATUS_CONFIG.pending;
   const status = isEnded
     ? { label: "Ended", color: "text-gray-500", bg: "bg-gray-100", dot: "bg-gray-400" }
@@ -1351,7 +1351,7 @@ export default function ConnectionDrawer({
                 )}
 
                 {/* ── Family: Past Connection Actions (declined / expired / withdrawn / ended) ── */}
-                {!isProvider && !shouldBlur && (connection.status === "declined" || connection.status === "expired" || connection.status === "archived") && (
+                {!isProvider && !shouldBlur && (connection.status === "declined" || connection.status === "expired") && (
                   <div className="shrink-0 px-6 py-5 border-t border-gray-100">
                     {connection.status === "declined" && (
                       <div className="flex gap-3">
@@ -1379,26 +1379,7 @@ export default function ConnectionDrawer({
                             type="button"
                             className="w-full min-h-[44px] rounded-xl bg-primary-600 text-white text-base font-semibold hover:bg-primary-700 transition-colors"
                           >
-                            Connect again
-                          </button>
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmAction("remove")}
-                          className="flex-1 min-h-[44px] rounded-xl border border-gray-200 text-base font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-                        >
-                          Remove from list
-                        </button>
-                      </div>
-                    )}
-                    {connection.status === "archived" && (
-                      <div className="flex gap-3">
-                        <Link href={profileHref} className="flex-1">
-                          <button
-                            type="button"
-                            className="w-full min-h-[44px] rounded-xl bg-primary-600 text-white text-base font-semibold hover:bg-primary-700 transition-colors"
-                          >
-                            Reconnect
+                            {isEnded ? "Reconnect" : "Connect again"}
                           </button>
                         </Link>
                         <button
@@ -1526,10 +1507,14 @@ function SystemNote({
       color = "text-gray-500 bg-gray-100";
       break;
     case "archived":
-      text = metadata?.ended ? "You ended this connection" : "Connection archived";
+      text = "Connection archived";
       break;
     case "expired":
-      text = metadata?.withdrawn ? "You withdrew this request" : "This request expired";
+      text = metadata?.ended
+        ? "You ended this connection"
+        : metadata?.withdrawn
+        ? "You withdrew this request"
+        : "This request expired";
       break;
   }
 
