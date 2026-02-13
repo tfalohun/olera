@@ -105,7 +105,7 @@ export default function MatchCard({
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
-              <span className="text-[13px]">{location}</span>
+              <span className="text-[15px]">{location}</span>
             </div>
           </div>
         </div>
@@ -162,37 +162,26 @@ export default function MatchCard({
               <polyline points="15 3 21 3 21 9" />
               <line x1="10" y1="14" x2="21" y2="3" />
             </svg>
-            <span className="text-xs text-primary-600 font-medium">
+            <span className="text-sm text-primary-600 font-medium">
               View profile
             </span>
           </button>
         </div>
 
-        {/* Description */}
-        {provider.provider_description && (
-          <p className="text-[13px] text-gray-600 mb-3.5 leading-relaxed line-clamp-2">
-            {provider.provider_description}
-          </p>
-        )}
-
-        {/* Pricing + payment tags */}
-        {(priceDisplay || paymentTags.length > 0) && (
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {priceDisplay && (
-              <span className="text-[15px] font-bold text-gray-900">
-                {priceDisplay}
-              </span>
-            )}
-            {paymentTags.map((tag) => (
-              <span
-                key={tag}
-                className="text-[11px] text-primary-700 bg-primary-50 px-2.5 py-1 rounded-md font-semibold"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Pricing + payment tags — always shown for consistent card height */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-[15px] font-bold text-gray-900">
+            {priceDisplay || "Contact for pricing"}
+          </span>
+          {paymentTags.map((tag) => (
+            <span
+              key={tag}
+              className="text-[11px] text-primary-700 bg-primary-50 px-2.5 py-1 rounded-md font-semibold"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

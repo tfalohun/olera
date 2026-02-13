@@ -32,7 +32,7 @@ export default function MatchSortBar({
             key={opt.value}
             onClick={() => onSortChange(opt.value)}
             className={[
-              "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors border",
+              "px-2.5 py-1 rounded-md text-xs font-medium transition-colors border",
               sort === opt.value
                 ? "border-primary-600 bg-primary-50 text-primary-600"
                 : "border-gray-200 bg-white text-gray-500 hover:border-gray-300",
