@@ -180,7 +180,7 @@ export default function CarePostView({
 
     return (
       <div className="max-w-[560px]">
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-112px)]">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-250px)]">
           {/* Sticky header */}
           <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-gray-100 bg-white">
             <button
@@ -327,7 +327,7 @@ export default function CarePostView({
             {/* Actions */}
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
               {!reviewFields.filter((f) => f.required).every((f) => f.value) && (
-                <p className="text-xs text-red-500 font-medium text-center mb-2.5">
+                <p className="text-xs text-amber-600 font-medium text-center mb-2.5">
                   Complete all required fields to publish
                 </p>
               )}
@@ -358,7 +358,7 @@ export default function CarePostView({
 
   return (
     <div className="max-w-[560px]">
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-112px)]">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-250px)]">
         {/* Sticky header */}
         <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-gray-100 bg-white">
           <div className="flex items-center justify-between mb-3">
