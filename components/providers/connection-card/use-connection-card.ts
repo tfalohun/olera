@@ -92,7 +92,7 @@ export function useConnectionCard(props: ConnectionCardProps) {
       if (resolvedId) {
         const { data } = await supabase
           .from("connections")
-          .select("id, created_at")
+          .select("id, status, metadata, created_at")
           .in("from_profile_id", profileIds)
           .eq("to_profile_id", resolvedId)
           .eq("type", "inquiry")
@@ -101,9 +101,21 @@ export function useConnectionCard(props: ConnectionCardProps) {
           .single();
 
         if (data) {
-          setCardState("pending");
           setPendingRequestDate(data.created_at);
-          return; // Already connected — no need to fetch previous intent
+
+          if (data.status === "accepted") {
+            setCardState("responded");
+            return;
+          }
+
+          if (data.status === "pending") {
+            setCardState("pending");
+            return;
+          }
+
+          // Expired (withdrawn/ended) or declined — show past state
+          // but continue to fetch previous intent for reconnection prefill
+          setCardState("past");
         }
       }
 

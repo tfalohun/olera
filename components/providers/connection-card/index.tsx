@@ -7,6 +7,8 @@ import DefaultActions from "./DefaultActions";
 import IntentCapture from "./IntentCapture";
 import ConfirmationState from "./ConfirmationState";
 import PendingState from "./PendingState";
+import RespondedState from "./RespondedState";
+import PastConnectionState from "./PastConnectionState";
 import InactiveState from "./InactiveState";
 import ReturningUserState from "./ReturningUserState";
 import type { ConnectionCardProps } from "./types";
@@ -106,6 +108,23 @@ export default function ConnectionCard(props: ConnectionCardProps) {
             providerName={providerName}
             phone={phone}
             requestDate={hook.pendingRequestDate}
+          />
+        )}
+
+        {hook.cardState === "responded" && (
+          <RespondedState
+            providerName={providerName}
+            phone={phone}
+            requestDate={hook.pendingRequestDate}
+          />
+        )}
+
+        {hook.cardState === "past" && (
+          <PastConnectionState
+            providerName={providerName}
+            phone={phone}
+            requestDate={hook.pendingRequestDate}
+            onConnect={hook.startFlow}
           />
         )}
 

@@ -8,8 +8,10 @@ export type CardState =
   | "submitting" // State 3: Auto-submitting after auth
   | "returning" // State 4: Returning user (not reachable until auth)
   | "confirmation" // State 5: Request sent
-  | "pending" // State 6: Existing request
-  | "inactive"; // State 7: Provider not accepting
+  | "pending" // State 6: Existing pending request
+  | "responded" // State 7: Provider accepted — view connections
+  | "past" // State 8: Connection ended/withdrawn/expired — reconnect
+  | "inactive"; // State 9: Provider not accepting
 
 export type IntentStep = 0 | 1 | 2;
 
