@@ -7,6 +7,7 @@ import {
   getPrimaryImage,
   getCategoryDisplayName,
   formatLocation,
+  formatPriceRange,
 } from "@/lib/types/provider";
 
 interface MatchCardProps {
@@ -46,11 +47,7 @@ export default function MatchCard({
   const categoryDisplay = getCategoryDisplayName(provider.provider_category);
   const rating = provider.google_rating || 0;
 
-  // Payment methods from metadata (not directly available on olera-providers, show category-based tags)
-  const paymentTags: string[] = [];
-  if (provider.lower_price || provider.upper_price) {
-    paymentTags.push("Private pay");
-  }
+  const priceDisplay = formatPriceRange(provider);
 
   return (
     <div className="w-full rounded-2xl overflow-hidden bg-white shadow-lg border border-gray-100">
@@ -167,17 +164,12 @@ export default function MatchCard({
           </p>
         )}
 
-        {/* Payment method pills */}
-        {paymentTags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {paymentTags.map((tag) => (
-              <span
-                key={tag}
-                className="text-[11px] text-primary-700 bg-primary-50 px-2.5 py-1.5 rounded-md font-semibold"
-              >
-                {tag}
-              </span>
-            ))}
+        {/* Pricing */}
+        {priceDisplay && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[15px] font-bold text-gray-900">
+              {priceDisplay}
+            </span>
           </div>
         )}
       </div>
