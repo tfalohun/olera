@@ -6,13 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import {
   type Provider,
   PROVIDERS_TABLE,
-  formatLocation,
-  formatPriceRange,
-  getCategoryDisplayName,
-  getPrimaryImage,
   toCardFormat,
   type ProviderCardData,
 } from "@/lib/types/provider";
+import type { Profile } from "@/lib/types";
 import BrowseFilters from "@/components/browse/BrowseFilters";
 
 // Care types matching iOS Supabase provider_category values
@@ -24,6 +21,37 @@ const CARE_TYPE_OPTIONS = [
   { label: "Independent Living", value: "Independent Living" },
   { label: "Nursing Home", value: "Nursing Home" },
 ];
+
+/** Map web business_profiles category to a display label */
+function profileCategoryLabel(category: string | null): string {
+  if (!category) return "Senior Care";
+  return category
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c: string) => c.toUpperCase());
+}
+
+/** Convert a web business_profiles row to ProviderCardData */
+function profileToCardFormat(p: Profile): ProviderCardData {
+  const location = [p.city, p.state].filter(Boolean).join(", ");
+  return {
+    id: p.id,
+    slug: p.slug,
+    name: p.display_name,
+    image: p.image_url || "/placeholder-provider.jpg",
+    images: p.image_url ? [p.image_url] : [],
+    address: location,
+    rating: 0,
+    priceRange: "Contact for pricing",
+    primaryCategory: profileCategoryLabel(p.category),
+    careTypes: p.care_types || [],
+    highlights: p.care_types?.slice(0, 2) || [],
+    acceptedPayments: [],
+    verified: p.verification_state === "verified",
+    description: p.description?.slice(0, 100) || undefined,
+    lat: p.lat,
+    lon: p.lng,
+  };
+}
 
 interface BrowsePageClientProps {
   searchQuery: string;
@@ -41,62 +69,100 @@ export default function BrowsePageClient({
 
   useEffect(() => {
     async function fetchProviders() {
-      // Always try Supabase first (don't check isSupabaseConfigured - it can give false negatives)
       try {
         const supabase = createClient();
 
-        // Build query with filters
-        let query = supabase
+        // ── Query 1: iOS olera-providers ──
+        let iosQuery = supabase
           .from(PROVIDERS_TABLE)
           .select("*")
           .not("deleted", "is", true);
 
-        // Apply care type filter
+        // Apply care type filter (iOS format)
         if (careTypeFilter) {
           const careTypeOption = CARE_TYPE_OPTIONS.find(
             (ct) => ct.label.toLowerCase().replace(/\s+/g, "-") === careTypeFilter
           );
           if (careTypeOption) {
-            // Use ilike for flexible matching (handles "Memory Care | Assisted Living" etc)
-            query = query.ilike("provider_category", `%${careTypeOption.value}%`);
+            iosQuery = iosQuery.ilike("provider_category", `%${careTypeOption.value}%`);
           }
         }
 
-        // Apply location filter (searchQuery can be "City, ST" or just "City" or state code)
+        // Apply location filter
         if (searchQuery) {
           const trimmed = searchQuery.trim();
-
-          // Check if it's "City, State" format
           const cityStateMatch = trimmed.match(/^(.+),\s*([A-Z]{2})$/i);
           if (cityStateMatch) {
             const city = cityStateMatch[1].trim();
             const state = cityStateMatch[2].toUpperCase();
-            query = query.ilike("city", `%${city}%`).eq("state", state);
+            iosQuery = iosQuery.ilike("city", `%${city}%`).eq("state", state);
           } else if (/^[A-Z]{2}$/i.test(trimmed)) {
-            // Just a state code like "TX" or "CA"
-            query = query.eq("state", trimmed.toUpperCase());
+            iosQuery = iosQuery.eq("state", trimmed.toUpperCase());
           } else {
-            // Search by city name or provider name
-            query = query.or(`city.ilike.%${trimmed}%,provider_name.ilike.%${trimmed}%`);
+            iosQuery = iosQuery.or(`city.ilike.%${trimmed}%,provider_name.ilike.%${trimmed}%`);
           }
         }
 
-        // Apply state filter if provided separately
         if (stateFilter) {
-          query = query.eq("state", stateFilter.toUpperCase());
+          iosQuery = iosQuery.eq("state", stateFilter.toUpperCase());
         }
 
-        // Order by rating and limit results
-        const { data, error } = await query
-          .order("google_rating", { ascending: false })
-          .limit(50);
+        iosQuery = iosQuery.order("google_rating", { ascending: false }).limit(50);
 
-        if (error) {
-          console.error("Browse fetch error:", error.message);
-          setProviders([]);
-        } else {
-          setProviders((data as Provider[]).map(toCardFormat));
+        // ── Query 2: Web-created business_profiles (organizations + caregivers) ──
+        let webQuery = supabase
+          .from("business_profiles")
+          .select("id, slug, display_name, description, image_url, city, state, category, care_types, verification_state, lat, lng, source_provider_id")
+          .in("type", ["organization", "caregiver"])
+          .eq("is_active", true)
+          .is("source_provider_id", null) // Exclude claimed iOS providers (already in iOS results)
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        // Apply same location filters to web profiles
+        if (searchQuery) {
+          const trimmed = searchQuery.trim();
+          const cityStateMatch = trimmed.match(/^(.+),\s*([A-Z]{2})$/i);
+          if (cityStateMatch) {
+            const city = cityStateMatch[1].trim();
+            const state = cityStateMatch[2].toUpperCase();
+            webQuery = webQuery.ilike("city", `%${city}%`).eq("state", state);
+          } else if (/^[A-Z]{2}$/i.test(trimmed)) {
+            webQuery = webQuery.eq("state", trimmed.toUpperCase());
+          } else {
+            webQuery = webQuery.or(`city.ilike.%${trimmed}%,display_name.ilike.%${trimmed}%`);
+          }
         }
+
+        if (stateFilter) {
+          webQuery = webQuery.eq("state", stateFilter.toUpperCase());
+        }
+
+        // Run both queries in parallel
+        const [iosResult, webResult] = await Promise.all([iosQuery, webQuery]);
+
+        const iosCards = iosResult.error
+          ? []
+          : (iosResult.data as Provider[]).map(toCardFormat);
+
+        let webCards = webResult.error
+          ? []
+          : (webResult.data as Profile[]).map(profileToCardFormat);
+
+        // Client-side care type filter for web profiles (naming differs from iOS)
+        if (careTypeFilter && webCards.length > 0) {
+          const filterLabel = careTypeFilter.replace(/-/g, " ").toLowerCase();
+          webCards = webCards.filter((card) =>
+            card.careTypes.some((ct) => ct.toLowerCase().includes(filterLabel))
+          );
+        }
+
+        if (iosResult.error) {
+          console.error("Browse iOS fetch error:", iosResult.error.message);
+        }
+
+        // Merge: web-created first, then iOS directory
+        setProviders([...webCards, ...iosCards]);
       } catch (err) {
         console.error("Browse page error:", err);
         setProviders([]);
