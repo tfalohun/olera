@@ -183,7 +183,7 @@ export default function MatchCardStack({
     <div ref={containerRef} className="flex flex-col items-center">
       {/* Card stack wrapper */}
       <div
-        className="relative w-full max-w-[480px]"
+        className="relative w-full max-w-[600px]"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >

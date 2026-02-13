@@ -55,14 +55,14 @@ export default function MatchCard({
   return (
     <div className="w-full rounded-2xl overflow-hidden bg-white shadow-lg border border-gray-100">
       {/* Photo area */}
-      <div className="relative h-[280px] bg-gray-100">
+      <div className="relative h-[320px] bg-gray-100">
         {primaryImage ? (
           <Image
             src={primaryImage}
             alt={provider.provider_name}
             fill
             className="object-cover"
-            sizes="(max-width: 640px) 100vw, 480px"
+            sizes="(max-width: 640px) 100vw, 600px"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">

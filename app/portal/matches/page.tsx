@@ -239,7 +239,7 @@ export default function MatchesPage() {
                 />
               )}
 
-              <div className="flex justify-center min-h-[560px]">
+              <div className="min-h-[560px]">
                 <div ref={cardStackRef}>
                   <MatchCardStack
                     providers={providers}
