@@ -73,8 +73,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // Use service client to bypass RLS for both read and write
+    const adminDb = getServiceClient();
+
     // Fetch connection
-    const { data: connection, error: fetchError } = await supabase
+    const { data: connection, error: fetchError } = await adminDb
       .from("connections")
       .select("id, from_profile_id, to_profile_id, status, metadata")
       .eq("id", connectionId)
@@ -153,9 +156,7 @@ export async function POST(request: Request) {
         created_at: now,
       };
 
-      // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
-      const adminDb = getServiceClient();
-      const { error: updateError } = await adminDb
+      const { data: updated, error: updateError } = await adminDb
         .from("connections")
         .update({
           metadata: {
@@ -164,9 +165,11 @@ export async function POST(request: Request) {
             next_step_request: nextStepRequest,
           },
         })
-        .eq("id", connectionId);
+        .eq("id", connectionId)
+        .select("metadata")
+        .single();
 
-      if (updateError) {
+      if (updateError || !updated) {
         console.error("Next step request error:", updateError);
         return NextResponse.json(
           { error: "Failed to send request" },
@@ -202,9 +205,7 @@ export async function POST(request: Request) {
 
     const updatedThread = [...existingThread, cancelMessage];
 
-    // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
-    const adminDb = getServiceClient();
-    const { error: updateError } = await adminDb
+    const { data: updated, error: updateError } = await adminDb
       .from("connections")
       .update({
         metadata: {
@@ -213,9 +214,11 @@ export async function POST(request: Request) {
           next_step_request: null,
         },
       })
-      .eq("id", connectionId);
+      .eq("id", connectionId)
+      .select("id")
+      .single();
 
-    if (updateError) {
+    if (updateError || !updated) {
       console.error("Cancel request error:", updateError);
       return NextResponse.json(
         { error: "Failed to cancel request" },

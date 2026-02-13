@@ -8,8 +8,8 @@ import { getServiceClient } from "@/lib/admin";
  * Accepts or declines a connection request. Only the recipient
  * (to_profile_id) can respond. Updates status to "accepted" or "declined".
  *
- * This uses the server client (with the user's auth cookie) to ensure
- * the write goes through even if client-side RLS has issues.
+ * Uses the service client to bypass RLS for the write (UPDATE policy
+ * only allows from_profile_id, but the recipient is to_profile_id).
  */
 export async function POST(request: Request) {
   try {
@@ -57,14 +57,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch the connection
-    const { data: connection, error: fetchError } = await supabase
+    // Use service client to bypass RLS for both read and write
+    const adminDb = getServiceClient();
+
+    // Fetch the connection using service client
+    const { data: connection, error: fetchError } = await adminDb
       .from("connections")
       .select("id, from_profile_id, to_profile_id, status")
       .eq("id", connectionId)
       .single();
 
     if (fetchError || !connection) {
+      console.error("Respond fetch error:", fetchError);
       return NextResponse.json(
         { error: "Connection not found" },
         { status: 404 }
@@ -87,22 +91,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
-    const adminDb = getServiceClient();
-    const { error: updateError } = await adminDb
+    // Write using service client and verify with .select()
+    const { data: updated, error: updateError } = await adminDb
       .from("connections")
       .update({ status: action })
-      .eq("id", connectionId);
+      .eq("id", connectionId)
+      .select("id, status")
+      .single();
 
-    if (updateError) {
-      console.error("Respond error:", updateError);
+    if (updateError || !updated) {
+      console.error("Respond update error:", updateError);
       return NextResponse.json(
         { error: "Failed to update connection" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ status: action });
+    return NextResponse.json({ status: updated.status });
   } catch (err) {
     console.error("Respond error:", err);
     return NextResponse.json(

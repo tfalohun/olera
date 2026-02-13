@@ -53,14 +53,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch the connection
-    const { data: connection, error: fetchError } = await supabase
+    // Use service client to bypass RLS for both read and write
+    const adminDb = getServiceClient();
+
+    // Fetch the connection using service client
+    const { data: connection, error: fetchError } = await adminDb
       .from("connections")
       .select("id, from_profile_id, to_profile_id, status, metadata")
       .eq("id", connectionId)
       .single();
 
     if (fetchError || !connection) {
+      console.error("Message fetch error:", fetchError);
       return NextResponse.json(
         { error: "Connection not found" },
         { status: 404 }
@@ -97,24 +101,27 @@ export async function POST(request: Request) {
 
     const updatedThread = [...existingThread, newMessage];
 
-    // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
-    const adminDb = getServiceClient();
-    const { error: updateError } = await adminDb
+    // Write using service client and return the updated row
+    const { data: updated, error: updateError } = await adminDb
       .from("connections")
       .update({
         metadata: { ...existingMeta, thread: updatedThread },
       })
-      .eq("id", connectionId);
+      .eq("id", connectionId)
+      .select("metadata")
+      .single();
 
-    if (updateError) {
-      console.error("Message error:", updateError);
+    if (updateError || !updated) {
+      console.error("Message update error:", updateError);
       return NextResponse.json(
         { error: "Failed to send message" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ thread: updatedThread });
+    // Return the actual persisted thread from DB
+    const persistedMeta = (updated.metadata as Record<string, unknown>) || {};
+    return NextResponse.json({ thread: persistedMeta.thread || updatedThread });
   } catch (err) {
     console.error("Message error:", err);
     return NextResponse.json(

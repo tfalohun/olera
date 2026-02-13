@@ -44,8 +44,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // Use service client to bypass RLS for both read and write
+    const adminDb = getServiceClient();
+
     // Fetch the connection
-    const { data: connection, error: fetchError } = await supabase
+    const { data: connection, error: fetchError } = await adminDb
       .from("connections")
       .select("id, from_profile_id, to_profile_id, status, metadata")
       .eq("id", connectionId)
@@ -78,16 +81,16 @@ export async function POST(request: Request) {
     // Set hidden flag in metadata
     const existingMeta =
       (connection.metadata as Record<string, unknown>) || {};
-    // Use service client to bypass RLS (UPDATE policy only allows from_profile_id)
-    const adminDb = getServiceClient();
-    const { error: updateError } = await adminDb
+    const { data: updated, error: updateError } = await adminDb
       .from("connections")
       .update({
         metadata: { ...existingMeta, hidden: true },
       })
-      .eq("id", connectionId);
+      .eq("id", connectionId)
+      .select("id")
+      .single();
 
-    if (updateError) {
+    if (updateError || !updated) {
       console.error("Hide error:", updateError);
       return NextResponse.json(
         { error: "Failed to remove" },
