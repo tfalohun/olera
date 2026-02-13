@@ -54,9 +54,9 @@ export async function POST(request: Request) {
       intentData: {
         careRecipient: string | null;
         careType: string | null;
-        careTypeOtherText: string;
+        careTypeOtherText?: string;
         urgency: string | null;
-        additionalNotes: string;
+        additionalNotes?: string;
       };
     };
 

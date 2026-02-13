@@ -9,24 +9,17 @@ import {
 import type { IntentData } from "./types";
 
 interface ReturningUserStateProps {
-  providerName: string;
   phone: string | null;
   intentData: IntentData;
-  notificationEmail: string;
-  onSend: () => void;
+  onConnect: () => void;
   onEdit: () => void;
-  submitting: boolean;
-  error: string;
 }
 
 export default function ReturningUserState({
   phone,
   intentData,
-  notificationEmail,
-  onSend,
+  onConnect,
   onEdit,
-  submitting,
-  error,
 }: ReturningUserStateProps) {
   const careTypeLabel = intentData.careType
     ? CARE_TYPE_LABELS[intentData.careType] || intentData.careType
@@ -45,11 +38,6 @@ export default function ReturningUserState({
         <p className="text-xs text-gray-500 mt-1 leading-relaxed">
           {recipientLabel} &middot; {urgencyLabel}
         </p>
-        {notificationEmail && notificationEmail !== "your email" && (
-          <p className="text-xs text-gray-500 mt-0.5">
-            {notificationEmail}
-          </p>
-        )}
         <button
           onClick={onEdit}
           className="text-xs text-primary-600 font-medium mt-2 underline decoration-primary-600/25 underline-offset-2 hover:decoration-primary-600/50 transition-colors bg-transparent border-none cursor-pointer p-0"
@@ -58,16 +46,11 @@ export default function ReturningUserState({
         </button>
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 mb-2">{error}</p>
-      )}
-
       <button
-        onClick={onSend}
-        disabled={submitting}
+        onClick={onConnect}
         className="w-full py-3.5 bg-primary-600 hover:bg-primary-500 text-white border-none rounded-[10px] text-[15px] font-semibold cursor-pointer transition-colors"
       >
-        {submitting ? "Connecting..." : "Connect"}
+        Connect
       </button>
 
       <div className="mt-2.5">
